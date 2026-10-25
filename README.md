@@ -82,7 +82,7 @@ docs/solution/                  Project knowledge: overview, conventions, decisi
 - [Optional Herdr specialist coordination](docs/herdr-specialists.md)
 - [Existing-repo and pipeline adoption](docs/adoption.md)
 - [Design decisions](docs/design.md)
-- [Validation evidence and remaining gaps](docs/validation.md)
+- [Validation evidence and remaining gaps](docs/validation.md); pilot projects are anonymized as Project A–D
 
 ## Tests
 
@@ -99,3 +99,7 @@ For local integration checks with actual PAC and your own export:
 ```
 
 The smoke test uses temporary projects, unpacks twice, and compares normalized source/provenance hashes. It does not authenticate, import, publish, or run application logic. An optional Node-based MCP startup/tool-discovery check is documented in [SETUP.md](SETUP.md#5-verify-without-mutations). On Windows, Bash is optional; run PowerShell entry points directly.
+
+## License
+
+[MIT](LICENSE)
