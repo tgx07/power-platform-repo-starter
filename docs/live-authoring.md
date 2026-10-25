@@ -12,7 +12,7 @@ The authoring authority is the development environment. Do not maintain a compet
 
 1. Confirm task authorization and the intended nonproduction target. Review the exact logical name in the source manifest and local runtime app/environment IDs. A friendly alias is not an identity check.
 2. Open the existing saved app in Studio, enable coauthoring, and keep the tab open. The Canvas MCP cannot create the initial app record or enable coauthoring for you; `connect` then fails with "Coauthoring is not enabled for this app" until the user enables it and reloads the tab.
-3. Record the Studio URL with the `target` command if desired. It stores only the necessary non-secret identifiers in ignored `.powerplatform/local.json`, not the entire URL/query. It validates the known maker hostname and URL shape; it cannot verify the app's actual logical identity remotely.
+3. Read the app's IDs from `.powerplatform/local.json`. If it has no entry for the app, record the Studio URL the user confirmed with the `target` command, so later sessions start from it. It stores only the necessary non-secret identifiers in ignored `.powerplatform/local.json`, not the entire URL/query. It validates the known maker hostname and URL shape; it cannot verify the app's actual logical identity remotely.
 4. Connect using the native configuration skill or local adapter, then inspect the connected app read-only. Handle the correct account/tenant explicitly, especially for B2B guest access. Never infer the tenant ID or sign-in identity from an app name. `environment_category: "prod"` in `connect` is the public-cloud service category described under [Local target shape](#local-target-shape), not a production environment.
 5. Create a fresh, absolute, **YAML-only** workspace and synchronize current server state before editing. Do not pass the repository root, plugin root, `src/`, or a documented snapshot containing Markdown to `sync_canvas`. Keep this first sync untouched as the baseline for order and content comparisons.
 6. Follow the selected upstream Canvas workflow and discover current control/data contracts. Retain names, versions, bindings, and properties outside the approved delta. Handle missing host orchestration honestly.
@@ -30,6 +30,9 @@ Observed in project sessions with the Canvas Authoring MCP:
 - **Sync output can disagree with itself.** Two syncs without a compile between them have returned different orders. Trust a result only when two fresh syncs agree; `check` reports when they do not.
 - **Top-level order in a component is z-order.** An overlay rectangle swapped above its panel captures every click. Check component files first after a push.
 - **Studio can diverge from the session.** After a large push that coincided with a disconnect, Studio showed the new control types with default properties while sync showed the intended state. Studio saves what Studio shows: ask the user to close the tab without saving, reopen, and push again per screen.
+- **Studio can lag behind a passing compile.** After a compile followed by `sync_canvas` HTTP 500s, Studio still showed the old names while syncs showed the pushed state; a browser refresh of the Studio tab showed the pushed state. Ask the user to refresh before judging a batch, and not to save a tab that shows the old state.
+- **A rename is a delete plus a create.** Studio showed renamed controls being removed and re-created, not renamed in place. This likely triggers the reload below and the order changes; anything tied to the old control instance (not to its name in formulas) does not carry over.
+- **Studio needs time to settle after a push, and may write back.** While it reloads, `sync_canvas` can return HTTP 500. Once a batch had verified clean, Studio's reload wrote the screen back with server-dropped defaults and a moved top-level component (z-order). Take two agreeing syncs before each batch, too, and compare them with the previous push; restore the order and push again if it moved.
 - **`sync_canvas` can return HTTP 500.** The target directory stays empty; retry once.
 - **Compile rejects empty component Event defaults** (`Default: =`). `canvas.py fix-event-defaults` sets them to `=false`.
 
@@ -100,7 +103,7 @@ Flow definitions under `src/Workflows/` remain export-derived review artifacts. 
 
 ## Baseline limitations
 
-For Claude Code, `.claude/settings.json` allows the read-only Canvas and FlowAgent tools and asks before every mutating one, so live work runs in auto mode without blanket approvals. When a tool outside both lists is blocked, ask the user to approve it; never edit permission settings yourself.
+For Claude Code, `.claude/settings.json` allows the Canvas and FlowAgent tools, including mutating ones (connect, compile, run, publish, delete), without prompts, so live work runs in auto mode. Task authorization still governs every remote mutation (see AGENTS.md). When a tool outside the list is blocked, ask the user to approve it; never edit permission settings yourself.
 
 Project-local registration limits activation/context outside this repo; it does not constrain the tools' remote permissions or prevent upstream instructions from suggesting global writes. Preserve the local-only rule during repair. A reviewed native plugin may still have hooks, telemetry, and authentication code running as your user.
 

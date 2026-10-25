@@ -62,9 +62,7 @@
       "mcp__plugin_power-automate_flowagent__list_machine_groups",
       "mcp__plugin_power-automate_flowagent__validate_flow",
       "mcp__plugin_power-automate_flowagent__preflight_flow",
-      "mcp__plugin_power-automate_flowagent__preview_update"
-    ],
-    "ask": [
+      "mcp__plugin_power-automate_flowagent__preview_update",
       "mcp__plugin_canvas-apps_canvas-authoring__connect",
       "mcp__plugin_canvas-apps_canvas-authoring__connect_and_open_studio_with_new_blank",
       "mcp__plugin_canvas-apps_canvas-authoring__compile_canvas",

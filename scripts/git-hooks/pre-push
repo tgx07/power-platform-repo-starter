@@ -1,0 +1,12 @@
+#!/bin/sh
+# Starter only: its .git/config sets core.hooksPath to this folder. A plain folder copy carries the
+# starter's .git, remote, and this setting along; refuse to push from the copy until `detach` gives it
+# its own history. `new` and `detach` create a fresh .git, so projects never run this hook.
+root=$(git rev-parse --show-toplevel) || exit 1
+marker="$root/.powerplatform/starter-template.json"
+[ -f "$marker" ] || exit 0
+expected=$(sed -n 's/.*"folderName": *"\([^"]*\)".*/\1/p' "$marker")
+[ "$(basename "$root")" = "$expected" ] && exit 0
+echo "pre-push: $root is a plain copy of the starter and still uses the starter's history and remote." >&2
+echo "Run 'scripts/powerplatform.sh detach' (or powerplatform.ps1) for a fresh history without a remote, then add the project's own remote." >&2
+exit 1

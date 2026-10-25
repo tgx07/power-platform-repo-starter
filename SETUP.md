@@ -92,7 +92,7 @@ claude plugin install power-automate@power-platform-skills --scope project
 
 Then start plain `claude` from the repo root. No `setup` run or launcher is needed for Claude's live tooling. Never choose user/global scope.
 
-The tracked `permissions` in `.claude/settings.json` allow the read-only Canvas and FlowAgent tools (including `sync_canvas`, which only writes the local workspace) and **ask** before `connect`, `compile_canvas`, and every FlowAgent tool that saves, runs, publishes, restores, or deletes. Without them, auto mode blocked live calls as "Production Reads/Deploy" in past sessions; `connect` reports the public cloud as `prod`, which reads like a production target. Keep mutating tools in `ask`; tools in neither list fall back to the active permission mode.
+The tracked `permissions` in `.claude/settings.json` allow the Canvas and FlowAgent tools, including `connect`, `compile_canvas`, and the FlowAgent tools that save, run, publish, restore, or delete. Without them, auto mode blocked live calls as "Production Reads/Deploy" in past sessions; `connect` reports the public cloud as `prod`, which reads like a production target. Remote mutations still need task authorization (AGENTS.md). Tools outside the list fall back to the active permission mode.
 
 Trade-offs of this starter decision:
 

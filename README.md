@@ -1,6 +1,6 @@
 # Power Platform repo starter
 
-A copyable, pipeline-independent starter for **one Power Platform solution per repository**. Version **0.4.0**.
+A copyable, pipeline-independent starter for **one Power Platform solution per repository**. Version **0.5.0**.
 
 - Unpack the highest-version unmanaged export using PAC on macOS or Windows.
 - Discover every exported Canvas app and generate `.pa.yaml` review source.
@@ -12,7 +12,7 @@ A copyable, pipeline-independent starter for **one Power Platform solution per r
 
 ## Start here
 
-1. Create the solution repo from the starter: `./scripts/powerplatform.sh new -Destination ../<project>` (or `powerplatform.ps1`). It copies the committed starter into a new Git repository on `main` with one baseline commit and no remote. A folder copied by hand still carries the starter's `.git` and remote; run `./scripts/powerplatform.sh detach` inside it. For an existing repo, follow [adoption guidance](docs/adoption.md); merge instructions/configuration instead of overwriting them.
+1. Create the solution repo from the starter: `./scripts/powerplatform.sh new -Destination ../<project>` (or `powerplatform.ps1`). It copies the committed starter into a new Git repository on `main` with one baseline commit and no remote. A folder copied by hand still carries the starter's `.git` and remote; run `./scripts/powerplatform.sh detach` inside it; until then, the starter's pre-push hook refuses to push from the copy. For an existing repo, follow [adoption guidance](docs/adoption.md); merge instructions/configuration instead of overwriting them.
 2. Follow [SETUP.md](SETUP.md) for offline prerequisites. Live plugins/MCPs are optional for unpacking.
 3. Put unmanaged solution ZIP exports directly in `Solutions/`. Their filenames do not determine selection.
 4. Prefer an export/review branch, then preview and unpack:

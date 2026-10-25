@@ -1,4 +1,4 @@
-# Validation record — starter 0.4.0
+# Validation record — starter 0.5.0
 
 Validated on **2026-10-17**, macOS ARM64. No source or agent configuration in the example repositories was changed. Customer exports were copied only to disposable temporary projects and are not included in this starter.
 
@@ -106,6 +106,14 @@ Added on **2026-10-25**: the starter is a Git repository; `new`, `detach`, and t
 - On the Project C workspaces, applying every screen as its own batch gave byte-identical results to the whole-app run for `rename --defined-in`, for `migrate-modern --only`, and for both combined per screen. On the combined result, `names` reported 0 controls without a prefix, `migrate-modern --dry-run` reported no legacy controls, and `rename --check` reported 379 of 379 entries applied.
 - `new` and `detach` are covered by offline tests with a synthetic starter (fresh history, no remote, marker removed, refusal on a dirty starter, on a non-empty destination, and on the starter's own folder).
 - Not exercised: either skill end to end in a live coauthoring session.
+
+### Project D changes in 0.5.0
+
+Added on **2026-10-25** from the Project D sessions: `rename` and `migrate-modern` match names after `\n`/`\r`/`\t` escapes in double-quoted scalars; `migrate-modern` covers Radio, NumberInput, InfoButton, and TabList; `check` ignores three more server-dropped defaults; three coauthoring observations in `docs/live-authoring.md`; the Canvas procedure reads targets from `local.json` and records missing ones; `.claude/settings.json` allows the mutating Canvas and FlowAgent tools without prompts; a starter-only `pre-push` hook (`scripts/git-hooks`) blocks pushes from a plain folder copy until `detach`.
+
+- `tests/test_canvas.py` covers the escape handling and the four new control types offline. The tooling changes were used for the Project D control update and rename and arrive unchanged from that project.
+- The hook is covered offline: the starter pushes to a bare remote, a plain copy is refused, and `detach` leaves no hook setting.
+- Not exercised: the new control mappings on an app other than Project D, and the changed permission rules in a fresh starter project.
 
 ## Remaining validation
 

@@ -444,6 +444,30 @@ try {
             Expect-Failure { Invoke-StarterDetach -Root $copy } 'Nothing to detach'
         } finally { foreach ($key in $gitTestEnv.Keys) { Remove-Item "env:$key" -ErrorAction SilentlyContinue } }
     }
+    Test 'the pre-push hook lets the starter push and stops a plain copy until detach' {
+        foreach ($key in $gitTestEnv.Keys) { Set-Item "env:$key" $gitTestEnv[$key] }
+        try {
+            $s = New-TestStarter
+            $hooks = Join-Path $s 'scripts/git-hooks'
+            [IO.Directory]::CreateDirectory($hooks) | Out-Null
+            Copy-Item -LiteralPath (Join-Path $starter 'scripts/git-hooks/pre-push') -Destination $hooks
+            Invoke-TestGit $s @('add', '-A')
+            Invoke-TestGit $s @('commit', '-m', 'hook')
+            Invoke-TestGit $s @('config', 'core.hooksPath', 'scripts/git-hooks')
+            $remote = Join-Path (Split-Path -Parent $s) 'remote.git'
+            & git init -q --bare $remote
+            Invoke-TestGit $s @('remote', 'set-url', 'origin', $remote)
+            Invoke-TestGit $s @('push', '-q', 'origin', 'main')
+            $copy = Join-Path (Split-Path -Parent $s) 'project-d'
+            Copy-Item -LiteralPath $s -Destination $copy -Recurse
+            $output = & git -C $copy push -q origin main 2>&1
+            Assert ($LASTEXITCODE -ne 0) 'A plain copy pushed to the starter remote'
+            Assert ("$output" -match 'detach') "Hook message missing 'detach': $output"
+            Invoke-StarterDetach -Root $copy 6>$null
+            Assert-FreshProject $copy
+            Assert ((& git -C $copy config --get core.hooksPath) -eq $null) 'Detached copy kept the starter hook setting'
+        } finally { foreach ($key in $gitTestEnv.Keys) { Remove-Item "env:$key" -ErrorAction SilentlyContinue } }
+    }
     Test 'Canvas YAML tools pass their offline tests' {
         $python = Get-Command python3 -ErrorAction SilentlyContinue
         if (-not $python) { Write-Warning 'python3 not found; skipping scripts/canvas tests.'; return }

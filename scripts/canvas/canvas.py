@@ -13,7 +13,7 @@ Commands:
   restore-order REF TARGET      move whole control blocks in TARGET back into REF's order
   rename MAP DIR [--check]      rename controls/variables from a TSV map (old<TAB>new); --defined-in for one screen
   fix-event-defaults DIR        give empty component Event properties a no-op `=false` default
-  migrate-modern DIR            move legacy modern controls (Text, Button, ...) to the updated ones
+  migrate-modern DIR            move legacy modern controls (Text, Button, ..., Radio, TabList) to the updated ones
 """
 import argparse
 import collections
@@ -48,6 +48,8 @@ PREFIXES = {
     "frm": "Form",
     "cmp": "component instance (CanvasComponent)",
 }
+# Start of a name: no word character before it, or a `\n`/`\r`/`\t` escape of a double-quoted YAML scalar.
+NAME_START = r"(?:(?<![A-Za-z0-9_])|(?<=\\[nrt]))"
 # Child items Studio generates for data-bound controls; their names are not renameable.
 UNNAMED_TYPES = ("DropDownDataField", "TabListDataField", "RadioDataField", "ComboBoxDataField")
 
@@ -206,7 +208,8 @@ def cmd_order(a):
 
 
 # The server drops properties that equal the control default; seen after migrate-modern pushes.
-DROPPED_BY_SERVER = ("VerticalAlign.Middle", "FontWeight.Normal", "ButtonAppearance.Primary", "TriggerOutput.Keypress")
+DROPPED_BY_SERVER = ("VerticalAlign.Middle", "FontWeight.Normal", "ButtonAppearance.Primary", "TriggerOutput.Keypress", "IconStyle.Outline", "Align: =Align.Left",
+                     "ItemDisplayText: =ThisItem.Value")
 
 
 def content_diffs(pushed, server, ignore):
@@ -351,14 +354,14 @@ def cmd_rename(a):
         if not mapping:
             return 0
     alt = "|".join(re.escape(n) for n in sorted(mapping, key=len, reverse=True))
-    rx = re.compile(r"(?<![A-Za-z0-9_])(" + alt + r")(?![A-Za-z0-9_])")
+    rx = re.compile(NAME_START + "(" + alt + r")(?![A-Za-z0-9_])")
     if a.check:
         errors = []
         olds, news = [o for o, _ in pairs], [n for _, n in pairs]
         errors += [f"duplicate old name {o}" for o, c in collections.Counter(olds).items() if c > 1]
         errors += [f"duplicate new name {n}" for n, c in collections.Counter(news).items() if c > 1]
         source = "\n".join(texts.values())
-        present = lambda name, after_dot=True: re.search(r"(?<![A-Za-z0-9_" + ("" if after_dot else ".") + r"])" + re.escape(name) + r"(?![A-Za-z0-9_])", source)
+        present = lambda name, after_dot=True: re.search((NAME_START if after_dot else r"(?:(?<![A-Za-z0-9_.])|(?<=\\[nrt]))") + re.escape(name) + r"(?![A-Za-z0-9_])", source)
         applied = {o for o, n in pairs if not present(o) and present(n)}
         kept = set(defined) - set(olds) - {n for o, n in pairs if o in applied}
         for o, n in pairs:
@@ -414,6 +417,8 @@ MIGRATE_TYPES = {
     "Text": "ModernText", "Button": "ModernButton", "TextInput": "ModernTextInput",
     "DropDown": "ModernDropdown", "DatePicker": "ModernDatePicker", "CheckBox": "ModernCheckbox",
     "Toggle": "ModernToggle", "Icon": "ModernIcon", "Link": "ModernLink",
+    "Radio": "ModernRadio", "NumberInput": "ModernNumberInput", "InfoButton": "ModernInformationButton",
+    "TabList": "ModernTabList",
 }
 COMMON_RENAMES = {
     "FontColor": "Color", "FontSize": "Size", "FontItalic": "Italic", "FontStrikethrough": "Strikethrough",
@@ -424,16 +429,22 @@ PER_TYPE_RENAMES = {
     "Text": {"Weight": "FontWeight"}, "TextInput": {"Value": "Default", "Mode": "Type"},
     "DropDown": {"DefaultSelectedItems": "Default"}, "DatePicker": {"SelectedDate": "DefaultDate"},
     "CheckBox": {"Checked": "Default"}, "Toggle": {"Checked": "Default"}, "Link": {"Appearance": "Type"},
+    "Radio": {"DefaultSelectedItems": "Default"}, "NumberInput": {"Value": "Default"},
+    "TabList": {"DefaultSelectedItems": "Default", "Size": "TabSize"},
 }
-DROPPED = {"Button": {"AcceptsFocus"}, "Icon": {"TabIndex"}, "CheckBox": {"OnSelect"}, "Toggle": {"OnSelect"}, "Link": {"AcceptsFocus"}}
+DROPPED = {"Button": {"AcceptsFocus"}, "Icon": {"TabIndex"}, "CheckBox": {"OnSelect"}, "Toggle": {"OnSelect"}, "Link": {"AcceptsFocus"},
+           "NumberInput": {"DelayOutput"}, "InfoButton": {"AcceptsFocus"}}
 # Old default -> pinned value, applied only when the property is absent, so the look stays the same.
 PINS = {
     "Text": {"Size": "=14", "PaddingTop": "=0", "PaddingBottom": "=0", "PaddingLeft": "=0", "PaddingRight": "=0",
              "VerticalAlign": "=VerticalAlign.Top", "Width": "=96"},
     "TextInput": {"TriggerOutput": "=TriggerOutput.FocusOut", "Placeholder": '=""'},
     "Link": {"Size": "=14", "PaddingTop": "=0", "PaddingBottom": "=0", "PaddingLeft": "=0", "PaddingRight": "=0"},
+    "Radio": {"RadioSize": "=16"},
+    "TabList": {"Height": "=55", "Width": "=280"},
 }
-LAYOUT_PINS = {"Text": {"LayoutMinWidth": "=96"}, "Link": {"LayoutMinWidth": "=320"}}  # AutoLayout parents only
+LAYOUT_PINS = {"Text": {"LayoutMinWidth": "=96"}, "Link": {"LayoutMinWidth": "=320"},  # AutoLayout parents only
+               "TabList": {"LayoutMinHeight": "=55", "LayoutMinWidth": "=280"}}
 ENUM_REPLACEMENTS = [
     (r"'TextCanvas\.Align'\.Start", "Align.Left"), (r"'TextCanvas\.Align'\.End", "Align.Right"),
     (r"'TextCanvas\.Align'\.(Center|Justify)", r"Align.\1"),
@@ -448,6 +459,10 @@ ENUM_REPLACEMENTS = [
     (r"'DatePickerCanvas\.Format'\.(\w+)", r"DatePickerFormat.\1"), (r"'DatePickerCanvas\.DateTimeZone'\.(\w+)", r"DateTimeZone.\1"),
     (r"'DatePickerCanvas\.ValidationState'\.(\w+)", r"ValidationState.\1"),
     (r"'Toggle\.LabelPosition'\.(\w+)", r"ToggleLabelPosition.\1"), (r"'LinkCanvas\.Appearance'\.(\w+)", r"LinkAppearance.\1"),
+    (r"'RadioGroupCanvas\.Layout'\.(\w+)", r"OptionLayout.\1"),
+    (r"'NumberInput\.Appearance'\.(\w+)", r"Appearance.\1"), (r"'NumberInput\.ValidationState'\.(\w+)", r"ValidationState.\1"),
+    (r"'NumberInput\.Precision'\.Auto", "DecimalPrecision.Auto"), (r"'NumberInput\.Precision'\.'?(\d)'?", r"DecimalPrecision.'\1'"),
+    (r"'TabList\.Alignment'\.(\w+)", r"LayoutDirection.\1"), (r"'TabList\.Size'\.(\w+)", r"TabSize.\1"),
 ]
 
 
@@ -516,7 +531,7 @@ def migrate_file(path, textinput_names, report):
             nkey = renames.get(key, key)
             text = nl.join([plines[0].replace(key + ":", nkey + ":", 1)] + plines[1:])
             if old == "TextInput":
-                text = re.sub(r"\bSelf\.Value\b", "Self.Text", text)
+                text = re.sub(NAME_START + r"Self\.Value\b", "Self.Text", text)
             if old in ("TextInput", "DropDown") and nkey == "ValidationState":
                 text = text.replace('"Error"', "ValidationState.Error").replace('"None"', "ValidationState.None")
             if old == "DatePicker" and nkey == "StartOfWeek":
@@ -533,7 +548,7 @@ def migrate_file(path, textinput_names, report):
         if old == "DatePicker" and "Placeholder" not in new_props:
             report.append(f"{os.path.basename(path)}: {c['name']} has no Placeholder; the old control showed a localized default hint")
         children = section(lines, c, "Children")
-        if old == "DropDown" and children:  # data fields become ItemDisplayText
+        if old in ("DropDown", "Radio", "TabList") and children:  # data fields become ItemDisplayText
             block = nl.join(lines[children[0] + 1:children[1]])
             pairs = sorted(zip((int(o) for o in re.findall(r"Order: =(\d+)", block)), re.findall(r'FieldName: ="(\w+)"', block)))
             if pairs and "ItemDisplayText" not in new_props:
@@ -553,7 +568,7 @@ def migrate_file(path, textinput_names, report):
         text = re.sub(pattern, repl, text)
     text = re.sub(r'\.ValidationState\s*=\s*"(Error|None)"', r".ValidationState = ValidationState.\1", text)
     for name in textinput_names:
-        text = re.sub(r"(?<![\w'])('?" + re.escape(name) + r"'?)\.Value\b", r"\1.Text", text)
+        text = re.sub(r"(?:(?<![\w'])|(?<=\\[nrt]))('?" + re.escape(name) + r"'?)\.Value\b", r"\1.Text", text)
     return raw, text
 
 
@@ -571,7 +586,7 @@ def cmd_migrate_modern(a):
             raw, nl = read(p)
             new = raw
             for name in textinputs:
-                new = re.sub(r"(?<![\w'])('?" + re.escape(name) + r"'?)\.Value\b", r"\1.Text", new)
+                new = re.sub(r"(?:(?<![\w'])|(?<=\\[nrt]))('?" + re.escape(name) + r"'?)\.Value\b", r"\1.Text", new)
         if raw != new:
             print(f"{'would change' if a.dry_run else 'changed'} {f}{'' if f in targets else ' (TextInput references)'}")
             if not a.dry_run:

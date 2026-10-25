@@ -4,7 +4,7 @@
 
 Run `scripts/powerplatform.ps1 new -Destination <path>` in the starter. It clones the committed starter (ignored `vendor`, `runtime`, `state`, and `workspaces` stay behind), removes the starter's history, remote, and `.powerplatform/starter-template.json`, and commits one baseline on `main`. Add the project's own remote afterwards. The starter must have no uncommitted changes.
 
-A folder copied with `cp -R` or Explorer still contains the starter's `.git`: commits would land in the starter's history and pushes would go to the starter's remote. `unpack` and `target` refuse to run while the marker file exists. Run `scripts/powerplatform.ps1 detach` in the copy to replace its history and remote with a fresh repository; it refuses to run in a folder that still has the starter's name.
+A folder copied with `cp -R` or Explorer still contains the starter's `.git`: commits would land in the starter's history and pushes would go to the starter's remote. `unpack` and `target` refuse to run while the marker file exists. Run `scripts/powerplatform.ps1 detach` in the copy to replace its history and remote with a fresh repository; it refuses to run in a folder that still has the starter's name. Until then, the starter's pre-push hook refuses to push from the copy. After either command, add the project's own remote (Azure DevOps or GitHub).
 
 Add project-specific domain rules, environment roles, configuration constraints, and release procedures as separate docs. Keep the generic `AGENTS.md` entry point short. For Copilot hosts that need a separate instruction entry point, link to these shared instructions using that host's project-scoped mechanism rather than duplicating them.
 
@@ -32,6 +32,10 @@ Do not simply point this unpacker at a folder containing managed/unmanaged relea
 For Project A specifically, adoption would require an intentional pipeline change: its current export pipeline hard-codes one Canvas package and writes managed/unmanaged candidates outside `Solutions/`. Its historical managed ZIPs and release retention rules are not the generic starter's input convention. Its current `contoso_sample_86b9c/Src/` review folder would become `contoso_sample/Src/` under the proposed alias rule. None of those changes is performed by creating this starter.
 
 For Project B, preserve its existing authored snapshot and acceptance documentation before replacing `Src/`. Normalize casing and migrate references separately. Its existing standalone Microsoft skill installation should be reconciled with the complete assets/adapter approach to prevent duplicate or incomplete guidance.
+
+## Maintaining the starter
+
+Run `git config core.hooksPath scripts/git-hooks` once in each clone of the starter itself. The `pre-push` hook allows pushes only from a folder named like `folderName` in `.powerplatform/starter-template.json`, so a plain copy cannot push to the starter's remote. Projects created with `new` or `detach` get a fresh `.git` without that setting.
 
 ## Upgrading a copied starter
 

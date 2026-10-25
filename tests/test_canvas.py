@@ -159,6 +159,90 @@ class CanvasTools(unittest.TestCase):
         with open(other, encoding="utf-8") as fh:
             self.assertIn("txtDoneName.Text", fh.read())
 
+    def test_names_after_escapes_in_double_quoted_scalars(self):
+        # Studio exports some formulas as "=...\r\n..." scalars; the `n` of `\n` must not hide the next name.
+        other = os.path.join(self.ref, "Other.pa.yaml")
+        canvas.write(other, 'Screens:\n  Other:\n    Properties:\n      OnVisible: "=If(true,\\r\\nTextCanvas7.Text,\\r\\nSelf.Text)"\n')
+        mp = os.path.join(self.tmp, "map.tsv")
+        canvas.write(mp, "TextCanvas7\tlblDoneMessage\n")
+        run("rename", mp, self.ref)
+        with open(other, encoding="utf-8") as fh:
+            self.assertIn("\\r\\nlblDoneMessage.Text", fh.read())
+        canvas.write(other, 'Screens:\n  Other:\n    Properties:\n      OnVisible: "=If(true,\\r\\nTextCanvas7.Text)"\n')
+        self.assertIn("applied 0, pending 1", run("rename", mp, self.ref, "--check")[1])
+        form = SCREEN.replace("Control: Text@0.0.51", "Control: TextInput@0.0.54").replace("TextCanvas7", "txtDoneName")
+        root = self.workspace("ti", screen=form)
+        other = os.path.join(root, "Other.pa.yaml")
+        canvas.write(other, 'Screens:\n  Other:\n    Properties:\n      OnVisible: "=If(true,\\r\\ntxtDoneName.Value)"\n')
+        run("migrate-modern", root)
+        with open(other, encoding="utf-8") as fh:
+            self.assertIn("\\r\\ntxtDoneName.Text", fh.read())
+
+    def test_migrate_modern_radio_numberinput_infobutton_tablist(self):
+        screen = """Screens:
+  Form:
+    Children:
+      - ctnFormScreen:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Children:
+            - radFormType:
+                Control: Radio@0.0.25
+                Properties:
+                  DefaultSelectedItems: =LookUp(Choices(src.type),Value = locRequest.type)
+                  Layout: ='RadioGroupCanvas.Layout'.Horizontal
+                Children:
+                  - Value3:
+                      Control: RadioDataField
+                      Variant: textualColumn
+                      IsLocked: true
+                      Properties:
+                        FieldName: ="Value"
+                        Order: =1
+            - numFormHours:
+                Control: NumberInput@1.0.0
+                Properties:
+                  DelayOutput: =true
+                  OnChange: =Set(varHours, Self.Value)
+                  Value: =ThisItem.hours
+            - infoFormType:
+                Control: InfoButton@0.0.3
+                Properties:
+                  AcceptsFocus: =true
+                  Content: ="Hinweis"
+            - tabFormTypes:
+                Control: TabList@0.0.1
+                Properties:
+                  Items: =fxMenu
+                  Size: ='TabList.Size'.Small
+                Children:
+                  - id1:
+                      Control: TabListDataField
+                      Properties:
+                        FieldName: ="id"
+                        Order: =2
+                  - name1:
+                      Control: TabListDataField
+                      Properties:
+                        FieldName: ="name"
+                        Order: =1
+"""
+        root = self.workspace("fluent", screen=screen)
+        out = run("migrate-modern", root)[1]
+        self.assertIn("numFormHours dropped DelayOutput", out)
+        self.assertIn("infoFormType dropped AcceptsFocus", out)
+        with open(os.path.join(root, "Done.pa.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        for expected in ("Control: ModernRadio", "Default: =LookUp(Choices(src.type),Value = locRequest.type)",
+                         "Layout: =OptionLayout.Horizontal", "RadioSize: =16", "ItemDisplayText: =ThisItem.Value",
+                         "Control: ModernNumberInput", "Default: =ThisItem.hours", "Self.Value",
+                         "Control: ModernInformationButton", "Control: ModernTabList", "ItemDisplayText: =ThisItem.name",
+                         "TabSize: =TabSize.Small", "Height: =55", "LayoutMinHeight: =55"):
+            self.assertIn(expected, text)
+        for gone in ("DataField", "DelayOutput", "AcceptsFocus", "DefaultSelectedItems", "RadioGroupCanvas", "'TabList.Size'"):
+            self.assertNotIn(gone, text)
+        self.assertIn("none |", run("migrate-modern", root, "--dry-run")[1])
+
     def test_fix_event_defaults(self):
         run("fix-event-defaults", self.ref)
         with open(os.path.join(self.ref, "Components", "Picker.pa.yaml"), encoding="utf-8") as fh:
