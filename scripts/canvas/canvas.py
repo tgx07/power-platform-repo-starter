@@ -11,7 +11,7 @@ Commands:
   order REF CAND                parents whose children appear in a different order than in REF
   check PUSHED SYNC [SYNC ...]  after a compile: order and content of each fresh sync vs. PUSHED
   restore-order REF TARGET      move whole control blocks in TARGET back into REF's order
-  rename MAP DIR [--check]      rename controls/variables app-wide from a TSV map (old<TAB>new)
+  rename MAP DIR [--check]      rename controls/variables from a TSV map (old<TAB>new); --defined-in for one screen
   fix-event-defaults DIR        give empty component Event properties a no-op `=false` default
   migrate-modern DIR            move legacy modern controls (Text, Button, ...) to the updated ones
 """
@@ -21,7 +21,7 @@ import os
 import re
 import sys
 
-# Naming prefixes: single source of truth for `names`, `rename --check` and docs/canvas-naming.md.
+# Naming prefixes: single source of truth for `names`, `rename --check` and the canvas-rename-controls skill.
 PREFIXES = {
     "ctn": "GroupContainer (any variant)",
     "lbl": "Text, ModernText, Label",
@@ -205,6 +205,10 @@ def cmd_order(a):
     return 1 if diffs else 0
 
 
+# The server drops properties that equal the control default; seen after migrate-modern pushes.
+DROPPED_BY_SERVER = ("VerticalAlign.Middle", "FontWeight.Normal", "ButtonAppearance.Primary", "TriggerOutput.Keypress")
+
+
 def content_diffs(pushed, server, ignore):
     """{rel: (missing lines, added lines)} comparing line multisets; order is checked separately."""
     out = {}
@@ -218,7 +222,7 @@ def content_diffs(pushed, server, ignore):
         x = collections.Counter(l.rstrip() for l in read(pa)[0].splitlines())
         y = collections.Counter(l.rstrip() for l in read(sa)[0].splitlines())
         keep = lambda l: l.strip() and not any(s in l for s in ignore)
-        missing = [l.strip() for l in (x - y).elements() if keep(l)]
+        missing = [l.strip() for l in (x - y).elements() if keep(l) and not any(s in l for s in DROPPED_BY_SERVER)]
         added = [l.strip() for l in (y - x).elements() if keep(l)]
         if missing or added:
             out[rel] = (missing, added)
@@ -340,6 +344,12 @@ def cmd_rename(a):
     files = yaml_files(a.dir)
     texts = {f: read(os.path.join(a.dir, f))[0] for f in files}
     defined = collections.Counter(r["name"] for f in files for r in controls(a.dir, f))
+    if a.defined_in and not a.check:
+        local = {r["name"] for f in a.defined_in for r in controls(a.dir, f)}
+        mapping = {o: n for o, n in mapping.items() if o in local}
+        print(f"renaming {len(mapping)} control(s) defined in {', '.join(a.defined_in)}, in every file that references them")
+        if not mapping:
+            return 0
     alt = "|".join(re.escape(n) for n in sorted(mapping, key=len, reverse=True))
     rx = re.compile(r"(?<![A-Za-z0-9_])(" + alt + r")(?![A-Za-z0-9_])")
     if a.check:
@@ -348,20 +358,23 @@ def cmd_rename(a):
         errors += [f"duplicate old name {o}" for o, c in collections.Counter(olds).items() if c > 1]
         errors += [f"duplicate new name {n}" for n, c in collections.Counter(news).items() if c > 1]
         source = "\n".join(texts.values())
-        for o in olds:
+        present = lambda name, after_dot=True: re.search(r"(?<![A-Za-z0-9_" + ("" if after_dot else ".") + r"])" + re.escape(name) + r"(?![A-Za-z0-9_])", source)
+        applied = {o for o, n in pairs if not present(o) and present(n)}
+        kept = set(defined) - set(olds) - {n for o, n in pairs if o in applied}
+        for o, n in pairs:
+            if o in applied:
+                continue
             if defined[o] > 1:
                 errors.append(f"old name {o} defined {defined[o]}x")
-            elif defined[o] == 0 and not re.search(r"(?<![A-Za-z0-9_])" + re.escape(o) + r"(?![A-Za-z0-9_])", source):
+            elif defined[o] == 0 and not present(o):
                 errors.append(f"old name {o} not found")
-        kept = set(defined) - set(olds)
-        for o, n in pairs:
             if n in kept:
                 errors.append(f"new name {n} collides with a kept control")
-            if re.search(r"(?<![A-Za-z0-9_.])" + re.escape(n) + r"(?![A-Za-z0-9_])", source):
+            if present(n, after_dot=False):
                 errors.append(f"new name {n} already appears in source")
             if defined[o] and not is_prefixed(n, a.prefix):
                 errors.append(f"new control name {n} has no naming prefix")
-        print(f"controls {sum(defined.values())}, renamed {len(pairs)}, kept {len(kept)}")
+        print(f"controls {sum(defined.values())}, map entries {len(pairs)}, applied {len(applied)}, pending {len(pairs) - len(applied)}, kept {len(kept)}")
         print("kept without prefix:", sorted(k for k in kept if not is_prefixed(k, a.prefix)) or "none")
         strs = []
         for f, t in texts.items():
@@ -376,7 +389,7 @@ def cmd_rename(a):
         new, n = rx.subn(lambda m: mapping[m.group(1)], texts[f])
         if n:
             write(os.path.join(a.dir, f), new)
-        print(f"{f}: {n} replacements")
+            print(f"{f}: {n} replacements")
     return 0
 
 
@@ -546,18 +559,30 @@ def migrate_file(path, textinput_names, report):
 
 def cmd_migrate_modern(a):
     files = [f for f in yaml_files(a.dir) if not os.path.basename(f).startswith("_")]
-    textinputs = {c["name"] for f in files for c in parse_blocks(read(os.path.join(a.dir, f))[0].splitlines()) if c["type"] == "TextInput"}
+    targets = [f for f in files if not a.only or f in a.only]
+    # `.Value` -> `.Text` follows only the TextInputs migrated in this run, in every file that references them.
+    textinputs = {c["name"] for f in targets for c in parse_blocks(read(os.path.join(a.dir, f))[0].splitlines()) if c["type"] == "TextInput"}
     report = []
     for f in files:
-        if a.only and f not in a.only:
-            continue
-        raw, new = migrate_file(os.path.join(a.dir, f), textinputs, report)
+        p = os.path.join(a.dir, f)
+        if f in targets:
+            raw, new = migrate_file(p, textinputs, report)
+        else:
+            raw, nl = read(p)
+            new = raw
+            for name in textinputs:
+                new = re.sub(r"(?<![\w'])('?" + re.escape(name) + r"'?)\.Value\b", r"\1.Text", new)
         if raw != new:
-            print(f"{'would change' if a.dry_run else 'changed'} {f}")
+            print(f"{'would change' if a.dry_run else 'changed'} {f}{'' if f in targets else ' (TextInput references)'}")
             if not a.dry_run:
-                write(os.path.join(a.dir, f), new)
+                write(p, new)
     for line in report:
         print(line)
+    if a.dry_run or a.only:
+        blocks = [c for f in files for c in parse_blocks(read(os.path.join(a.dir, f))[0].splitlines())]
+        legacy = collections.Counter(c["type"] for c in blocks if c["type"] in MIGRATE_TYPES)
+        classic = collections.Counter(c["type"] for c in blocks if c["type"].startswith("Classic/"))
+        print(f"legacy controls in {a.dir}:", dict(legacy) or "none", "| classic controls (not migrated):", dict(classic) or "none")
 
 
 # ---------------------------------------------------------------- CLI
@@ -579,6 +604,8 @@ def main(argv=None):
     s = sub.add_parser("rename", help="rename from a TSV map")
     s.add_argument("map"); s.add_argument("dir"); s.add_argument("--check", action="store_true", help="validate only, write nothing")
     s.add_argument("--only", action="append", default=[], help="rewrite only this relative file (repeatable)")
+    s.add_argument("--defined-in", action="append", default=[], metavar="FILE",
+                   help="apply only map entries for controls defined in this relative file, in every file that references them (repeatable)")
     s.add_argument("--prefix", action="append", default=[], help="extra project prefix (repeatable)"); s.set_defaults(fn=cmd_rename)
     s = sub.add_parser("fix-event-defaults", help="empty component Event defaults -> =false"); s.add_argument("dir"); s.set_defaults(fn=cmd_fix_event_defaults)
     s = sub.add_parser("migrate-modern", help="legacy modern controls -> updated controls")

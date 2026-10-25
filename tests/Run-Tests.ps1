@@ -391,6 +391,59 @@ try {
         foreach ($expected in @('FLOW_X: Check/else/Notify', 'FLOW_X: Route/A/Grant', 'FLOW_X: Try/Send')) { Assert ($gaps -contains $expected) "Missing $expected" }
         Assert (@(Get-FlowAuthenticationGaps (Join-Path $r 'missing')).Count -eq 0) 'No Workflows folder must not fail'
     }
+    $gitTestEnv = @{
+        GIT_AUTHOR_NAME = 'Starter Tests'; GIT_AUTHOR_EMAIL = 'starter-tests@example.invalid'
+        GIT_COMMITTER_NAME = 'Starter Tests'; GIT_COMMITTER_EMAIL = 'starter-tests@example.invalid'
+        GIT_CONFIG_COUNT = '1'; GIT_CONFIG_KEY_0 = 'commit.gpgsign'; GIT_CONFIG_VALUE_0 = 'false'
+    }
+    function New-TestStarter([string]$FolderName = 'power-platform-repo-starter') {
+        $s = Join-Path (Join-Path $testRoot ([guid]::NewGuid().ToString('N'))) $FolderName
+        [IO.Directory]::CreateDirectory($s) | Out-Null
+        $p = New-Project
+        Get-ChildItem -LiteralPath $p -Force | Move-Item -Destination $s
+        [IO.File]::WriteAllText((Join-Path $s '.powerplatform/starter-template.json'), (@{ schemaVersion = 1; folderName = 'power-platform-repo-starter' } | ConvertTo-Json))
+        Invoke-TestGit $s @('remote', 'add', 'origin', 'https://example.invalid/power-platform-repo-starter.git')
+        Invoke-TestGit $s @('add', '-A')
+        Invoke-TestGit $s @('commit', '-m', 'starter marker')
+        return $s
+    }
+    function Assert-FreshProject([string]$Path) {
+        Assert (-not (Test-Path -LiteralPath (Join-Path $Path '.powerplatform/starter-template.json'))) 'Starter marker kept'
+        Assert ((& git -C $Path remote) -eq $null) 'Starter remote kept'
+        Assert (@(& git -C $Path log --format=%s).Count -eq 1) 'Starter history kept'
+        Assert ((& git -C $Path log -1 --format=%s) -match '^Baseline from power-platform-repo-starter 0\.') 'Missing baseline commit'
+        Assert ((& git -C $Path status --porcelain) -eq $null) 'Baseline left files uncommitted'
+    }
+    Test 'project commands refuse the starter template; new creates an independent project' {
+        foreach ($key in $gitTestEnv.Keys) { Set-Item "env:$key" $gitTestEnv[$key] }
+        try {
+            $s = New-TestStarter
+            Expect-Failure { Invoke-RepositoryUnpack -Root $s -PacPath $fakePac -Preview } 'starter template'
+            Expect-Failure { Set-StudioTarget -Root $s -AppAlias x -StudioUrl 'https://make.powerapps.com/' } 'starter template'
+            [IO.File]::WriteAllText((Join-Path $s 'scratch.txt'), 'uncommitted')
+            Expect-Failure { New-StarterProject -Root $s -Destination (Join-Path $testRoot 'dirty') } 'uncommitted'
+            Remove-Item -LiteralPath (Join-Path $s 'scratch.txt')
+            $d = Join-Path $testRoot "hr forms $([guid]::NewGuid().ToString('N'))"
+            New-StarterProject -Root $s -Destination $d 6>$null
+            Assert-FreshProject $d
+            Assert (Test-Path -LiteralPath (Join-Path $d '.powerplatform/config.json')) 'Project files missing'
+            Expect-Failure { New-StarterProject -Root $s -Destination $d } 'not empty'
+            Expect-Failure { New-StarterProject -Root $d -Destination (Join-Path $testRoot 'x') } 'is a project'
+        } finally { foreach ($key in $gitTestEnv.Keys) { Remove-Item "env:$key" -ErrorAction SilentlyContinue } }
+    }
+    Test 'detach replaces the history and remote of a plain starter copy' {
+        foreach ($key in $gitTestEnv.Keys) { Set-Item "env:$key" $gitTestEnv[$key] }
+        try {
+            $s = New-TestStarter
+            Expect-Failure { Invoke-StarterDetach -Root $s } 'may be the starter itself'
+            $copy = Join-Path (Split-Path -Parent $s) 'project-d'
+            Copy-Item -LiteralPath $s -Destination $copy -Recurse
+            Invoke-StarterDetach -Root $copy 6>$null
+            Assert-FreshProject $copy
+            Assert ((& git -C $s remote) -eq 'origin') 'Starter itself was changed'
+            Expect-Failure { Invoke-StarterDetach -Root $copy } 'Nothing to detach'
+        } finally { foreach ($key in $gitTestEnv.Keys) { Remove-Item "env:$key" -ErrorAction SilentlyContinue } }
+    }
     Test 'Canvas YAML tools pass their offline tests' {
         $python = Get-Command python3 -ErrorAction SilentlyContinue
         if (-not $python) { Write-Warning 'python3 not found; skipping scripts/canvas tests.'; return }

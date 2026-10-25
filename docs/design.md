@@ -1,4 +1,4 @@
-# Starter design — version 0.3.0
+# Starter design — version 0.4.0
 
 ## Agreed decisions
 
@@ -44,7 +44,7 @@ Staging a complete result naturally removes obsolete components and avoids parti
 
 The five-hex suffix rule is based on the Project A and Project B examples, not a universal Power Platform identity rule. Explicit overrides handle false matches and naming formats not recognized automatically. Exact identity and runtime IDs remain separate from aliases.
 
-## Not in version 0.3.0
+## Not in version 0.4.0
 
 - Automatic environment export, solution version assignment, import/deployment, publishing, or flow execution.
 - Background folder watching, automatic Git/PR operations, or input archive retention.

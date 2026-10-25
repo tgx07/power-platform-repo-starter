@@ -16,7 +16,7 @@ The authoring authority is the development environment. Do not maintain a compet
 4. Connect using the native configuration skill or local adapter, then inspect the connected app read-only. Handle the correct account/tenant explicitly, especially for B2B guest access. Never infer the tenant ID or sign-in identity from an app name. `environment_category: "prod"` in `connect` is the public-cloud service category described under [Local target shape](#local-target-shape), not a production environment.
 5. Create a fresh, absolute, **YAML-only** workspace and synchronize current server state before editing. Do not pass the repository root, plugin root, `src/`, or a documented snapshot containing Markdown to `sync_canvas`. Keep this first sync untouched as the baseline for order and content comparisons.
 6. Follow the selected upstream Canvas workflow and discover current control/data contracts. Retain names, versions, bindings, and properties outside the approved delta. Handle missing host orchestration honestly.
-7. Review changes and run the upstream compile/apply gate only within task authorization. Compilation is a remote mutation, not a harmless linter. Capture static vs applied diagnostics accurately. Compile **one screen or component per push**, keep a copy of the compiled workspace as `pushed`, then sync twice into fresh directories and run `canvas.py check <pushed> <sync-1> <sync-2>`. Continue only on a clean result; on order differences use `restore-order` and push again, and on content differences stop and ask the user to look at Studio.
+7. Review changes and run the upstream compile/apply gate only within task authorization. Compilation is a remote mutation, not a harmless linter. Capture static vs applied diagnostics accurately. Push changes that span several screens through the [per-screen push loop](#per-screen-push-loop).
 8. Inspect the intended Studio tab, verify changed formulas/layout, and save the draft. Reconnect/read back separately when persistent retention matters. Publish only after explicit approval and required manual validation.
 9. Export a new unmanaged solution with the intended version after saving the relevant changes. Place it in `Solutions/`, unpack on a review branch, and review the generated diff. Compilation itself does not update this repo's export.
 
@@ -33,7 +33,22 @@ Observed in project sessions with the Canvas Authoring MCP:
 - **`sync_canvas` can return HTTP 500.** The target directory stays empty; retry once.
 - **Compile rejects empty component Event defaults** (`Default: =`). `canvas.py fix-event-defaults` sets them to `=false`.
 
-Have the user confirm each pushed screen visually in Studio before the next push and before saving.
+## Per-screen push loop
+
+Any change that spans several screens (control updates, renames, multi-screen edits) goes to the server one **batch** at a time: one screen or component, plus `App.pa.yaml` or other files only when the batch's tool rewrote references there. Start with the smallest screen as a pilot.
+
+Workspace `.powerplatform/workspaces/<alias>/<yyyymmdd-hhmmss>/`: `base/` is the first sync and stays untouched; `work/` is a copy for whole-app dry runs; maps, lists, and notes sit beside them. Per batch `NN`:
+
+1. **Fresh state:** sync into `pre-NN/`, then copy it to `push-NN/`. Starting from a fresh sync keeps edits the user made in Studio since the last batch.
+2. **Apply:** run the batch's offline tool on `push-NN/` only (e.g. `migrate-modern --only <file>`, `rename --defined-in <file>`). `diff -r pre-NN push-NN` must show only the intended files.
+3. **Compile** `push-NN/`. If it fails on empty component event defaults, run `fix-event-defaults push-NN` and compile again.
+4. **Verify:** sync twice into `check-NN-a/` and `check-NN-b/`, then `canvas.py check push-NN check-NN-a check-NN-b`.
+   - **Clean:** go on.
+   - **Order only:** compile `push-NN/` again and verify again. If the order still differs after the second push, or the two syncs disagree, ask the user which order Studio shows.
+   - **Content:** stop. Ask the user to look at Studio before anything else is pushed.
+5. **Confirm:** name the screen and what to look at; the user checks it in Studio and saves. The next batch starts only after the user confirms.
+
+The loop is done when every batch is confirmed and the skill's own completion check passes on a fresh sync. Delete `pre-*`, `push-*`, and `check-*` folders after the next export is unpacked and committed.
 
 ## Canvas YAML tools
 
@@ -42,12 +57,11 @@ Have the user confirm each pushed screen visually in Studio before the next push
 | Task | Command |
 | --- | --- |
 | Understand an app's structure | `inventory`, `tree` |
-| Check names against [canvas-naming.md](canvas-naming.md) | `names` |
-| Verify a compile | `check`, then `restore-order` if only the order differs |
-| Rename controls or variables | `rename <map.tsv> <dir> --check`, then without `--check` per screen |
-| Update legacy modern controls (Studio's "update controls" banner) | `migrate-modern --dry-run`, then per screen with `--only` |
-
-`migrate-modern` pins the old defaults so the look stays the same; it reports dropped properties and DatePickers that lose their localized placeholder. Workspace layout: `.powerplatform/workspaces/<alias>/<yyyymmdd-hhmmss>/` per sync, with maps and notes beside (not inside) the synced directories.
+| Check names against the naming convention | `names` |
+| Verify a compile | `check` |
+| Rebuild an expected order on top of newer server content | `restore-order` |
+| Rename controls or variables | `rename`; procedure in the `canvas-rename-controls` skill |
+| Update legacy modern controls | `migrate-modern`; procedure in the `canvas-update-controls` skill |
 
 ## Local target shape
 

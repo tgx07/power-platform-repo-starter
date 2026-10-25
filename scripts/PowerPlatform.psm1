@@ -234,6 +234,7 @@ function Invoke-RepositoryUnpack {
     [CmdletBinding()]
     param([string]$Root, [string]$PacPath = 'pac', [switch]$Preview, [switch]$AllowDirty)
     $Root = Get-ProjectRoot $Root
+    Assert-NotStarterTemplate $Root
     Assert-NoLinks (Join-Path $Root '.powerplatform')
     Assert-NoLinks (Join-Path $Root 'src')
     $settings = Get-ProjectSettings $Root
@@ -337,6 +338,7 @@ function Set-StudioTarget {
     [CmdletBinding()]
     param([string]$Root, [string]$AppAlias, [string]$StudioUrl)
     $Root = Get-ProjectRoot $Root
+    Assert-NotStarterTemplate $Root
     Assert-NoLinks (Join-Path $Root '.powerplatform')
     $manifest = Read-JsonFile (Join-Path $Root '.powerplatform/source-manifest.json')
     $apps = @($manifest.apps | Where-Object alias -eq $AppAlias)
@@ -377,6 +379,61 @@ function Invoke-Git([string[]]$Arguments) {
     $output = @(& git @Arguments 2>&1 | ForEach-Object { "$_" })
     if ($LASTEXITCODE -ne 0) { throw "Git failed: $($output -join "`n")" }
     return $output -join "`n"
+}
+
+# Tracked only in the starter itself. A plain folder copy carries it (and the starter's .git and remote)
+# along; `new` and `detach` remove it, and project commands refuse to run while it exists.
+$script:StarterMarker = '.powerplatform/starter-template.json'
+
+function Test-StarterTemplate([string]$Root) { Test-Path -LiteralPath (Join-Path $Root $script:StarterMarker) }
+
+function Assert-NotStarterTemplate([string]$Root) {
+    if (Test-StarterTemplate $Root) {
+        throw "This is the starter template or a plain copy of it ($script:StarterMarker exists). Create projects with 'scripts/powerplatform.ps1 new -Destination <path>' from the starter. In a plain copy, run 'scripts/powerplatform.ps1 detach' to drop the starter's Git history and remote."
+    }
+}
+
+function Initialize-ProjectRepository([string]$Path, [string]$Message) {
+    Remove-Item -LiteralPath (Join-Path $Path $script:StarterMarker) -Force
+    Invoke-Git @('-C', $Path, 'init', '-q', '-b', 'main') | Out-Null
+    Invoke-Git @('-C', $Path, 'add', '-A') | Out-Null
+    Invoke-Git @('-C', $Path, 'commit', '-q', '-m', $Message) | Out-Null
+}
+
+function New-StarterProject {
+    [CmdletBinding()]
+    param([string]$Root, [string]$Destination)
+    $Root = Get-ProjectRoot $Root
+    if (-not (Test-StarterTemplate $Root)) { throw "Run 'new' from the starter template repository; $Root is a project." }
+    if (-not $Destination) { throw 'Provide -Destination <new project folder>.' }
+    $Destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
+    if ((Test-Path -LiteralPath $Destination) -and @(Get-ChildItem -LiteralPath $Destination -Force).Count -gt 0) {
+        throw "Destination is not empty: $Destination"
+    }
+    $dirty = Invoke-Git @('-C', $Root, 'status', '--porcelain')
+    if ($dirty) { throw "The starter has uncommitted changes; 'new' copies the committed HEAD. Commit them first.`n$dirty" }
+    $commit = Invoke-Git @('-C', $Root, 'rev-parse', '--short', 'HEAD')
+    $version = (Get-ProjectSettings $Root).Lock.starterVersion
+    # A local clone reproduces tracked files and symlinks exactly; its history and remote are then replaced.
+    Invoke-Git @('clone', '-q', '--no-hardlinks', '--', $Root, $Destination) | Out-Null
+    Remove-Item -LiteralPath (Join-Path $Destination '.git') -Recurse -Force
+    Initialize-ProjectRepository $Destination "Baseline from power-platform-repo-starter $version ($commit)"
+    Write-Host "Created $Destination from starter $version ($commit): new Git history on 'main', no remote."
+}
+
+function Invoke-StarterDetach {
+    [CmdletBinding()]
+    param([string]$Root)
+    $Root = Get-ProjectRoot $Root
+    if (-not (Test-StarterTemplate $Root)) { throw 'Nothing to detach: this working copy is not a copy of the starter template.' }
+    $marker = Read-JsonFile (Join-Path $Root $script:StarterMarker)
+    if ((Split-Path -Leaf $Root) -eq $marker.folderName) {
+        throw "Refusing to detach '$Root': it has the starter's folder name and may be the starter itself. Rename the copy first."
+    }
+    $git = Join-Path $Root '.git'
+    if (Test-Path -LiteralPath $git) { Remove-Item -LiteralPath $git -Recurse -Force }
+    Initialize-ProjectRepository $Root "Baseline from power-platform-repo-starter $((Get-ProjectSettings $Root).Lock.starterVersion) (detached copy)"
+    Write-Host "Detached ${Root}: removed the starter's Git history and remote; new history on 'main'."
 }
 
 function Get-McpEntries([string]$Root, $Lock) {
@@ -527,6 +584,7 @@ function Show-ProjectDoctor([string]$Root, [string]$PacPath = 'pac') {
     $Root = Get-ProjectRoot $Root
     $lock = (Get-ProjectSettings $Root).Lock
     Write-Host "Project: $Root"
+    if (Test-StarterTemplate $Root) { Write-Warning "This is the starter template. Create projects with 'new -Destination <path>'; a plain copy needs 'detach'." }
     $failed = $false
     foreach ($name in @('git', 'dotnet', 'dnx', 'node', 'az')) {
         $command = Get-Command $name -ErrorAction SilentlyContinue
@@ -541,4 +599,4 @@ function Show-ProjectDoctor([string]$Root, [string]$PacPath = 'pac') {
     if ($failed) { throw 'Offline prerequisites are not ready. See SETUP.md.' }
 }
 
-Export-ModuleMember -Function Invoke-RepositoryUnpack, Get-FlowAuthenticationGaps,Initialize-ProjectTooling, Set-StudioTarget, Show-ProjectDoctor, Assert-ToolingReady, Get-ProjectRoot
+Export-ModuleMember -Function Invoke-RepositoryUnpack, Get-FlowAuthenticationGaps, New-StarterProject, Invoke-StarterDetach, Initialize-ProjectTooling, Set-StudioTarget, Show-ProjectDoctor, Assert-ToolingReady, Get-ProjectRoot

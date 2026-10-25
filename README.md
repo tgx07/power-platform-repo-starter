@@ -1,6 +1,6 @@
 # Power Platform repo starter
 
-A copyable, pipeline-independent starter for **one Power Platform solution per repository**. Version **0.3.0**.
+A copyable, pipeline-independent starter for **one Power Platform solution per repository**. Version **0.4.0**.
 
 - Unpack the highest-version unmanaged export using PAC on macOS or Windows.
 - Discover every exported Canvas app and generate `.pa.yaml` review source.
@@ -12,7 +12,7 @@ A copyable, pipeline-independent starter for **one Power Platform solution per r
 
 ## Start here
 
-1. Copy this starter, including dotfolders, into a new solution repo. For an existing repo, follow [adoption guidance](docs/adoption.md); merge instructions/configuration instead of overwriting them.
+1. Create the solution repo from the starter: `./scripts/powerplatform.sh new -Destination ../<project>` (or `powerplatform.ps1`). It copies the committed starter into a new Git repository on `main` with one baseline commit and no remote. A folder copied by hand still carries the starter's `.git` and remote; run `./scripts/powerplatform.sh detach` inside it. For an existing repo, follow [adoption guidance](docs/adoption.md); merge instructions/configuration instead of overwriting them.
 2. Follow [SETUP.md](SETUP.md) for offline prerequisites. Live plugins/MCPs are optional for unpacking.
 3. Put unmanaged solution ZIP exports directly in `Solutions/`. Their filenames do not determine selection.
 4. Prefer an export/review branch, then preview and unpack:
@@ -38,6 +38,8 @@ A copyable, pipeline-independent starter for **one Power Platform solution per r
 
 | Command | Purpose |
 | --- | --- |
+| `powerplatform.ps1 new -Destination <path>` | From the starter: create a project with fresh Git history and no remote |
+| `powerplatform.ps1 detach` | In a hand-copied starter folder: replace the starter's Git history and remote with a fresh repository |
 | `powerplatform.ps1 doctor` | Inspect local prerequisites; no authentication |
 | `powerplatform.ps1 unpack -Preview` | Show the selected export without invoking PAC or replacing files |
 | `powerplatform.ps1 unpack` | Stage, validate, and replace generated source |
@@ -59,8 +61,9 @@ src/                            Generated solution files and per-app YAML
 scripts/                        Shared implementation and launchers
 scripts/canvas/canvas.py        Offline Canvas YAML tools (Python 3, stdlib)
 docs/solution/                  Project knowledge: overview, conventions, decisions, issues
-.agents/skills/                 Offline unpack/configuration skills; restored live adapters
+.agents/skills/                 Unpack, configuration, control update/rename skills; restored live adapters
 .powerplatform/config.json      Repo policy and alias overrides
+.powerplatform/starter-template.json  Starter only: blocks project commands; removed by new/detach
 .powerplatform/tooling.lock.json Tested toolchain pins
 .powerplatform/source-manifest.json  Generated provenance (commit it)
 .powerplatform/local.json       Ignored runtime targets
@@ -73,7 +76,7 @@ docs/solution/                  Project knowledge: overview, conventions, decisi
 
 - [Unpacking rules, aliases, safeguards, and recovery](docs/unpacking.md)
 - [Studio and flow authoring lifecycle](docs/live-authoring.md)
-- [Canvas naming convention](docs/canvas-naming.md)
+- [Canvas naming convention](.agents/skills/canvas-rename-controls/naming.md)
 - [Configuration review and evidence boundaries](docs/configuration-review.md)
 - [Baseline and optional Dataverse/SharePoint profiles](docs/capability-profiles.md)
 - [Optional Herdr specialist coordination](docs/herdr-specialists.md)

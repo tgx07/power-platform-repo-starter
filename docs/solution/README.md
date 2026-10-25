@@ -35,7 +35,7 @@ Data sources (lists, tables, mailboxes), environment variables and connection re
 
 ## Conventions
 
-Control and variable names follow [canvas-naming.md](../canvas-naming.md). Screen and component short names used as the naming context:
+Control and variable names follow [the naming convention](../../.agents/skills/canvas-rename-controls/naming.md). Screen and component short names used as the naming context:
 
 | Screen / component | Short name |
 | --- | --- |

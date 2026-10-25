@@ -1,4 +1,4 @@
-# Validation record — starter 0.3.0
+# Validation record — starter 0.4.0
 
 Validated on **2026-10-17**, macOS ARM64. No source or agent configuration in the example repositories was changed. Customer exports were copied only to disposable temporary projects and are not included in this starter.
 
@@ -98,6 +98,14 @@ Added on **2026-10-25** from the Project C sessions: `scripts/canvas/canvas.py`,
 - `canvas.py` consolidates scripts written during those sessions. On their saved workspaces it matched the originals: order detection (106 of 106 parents in a scrambled copy), `restore-order` (byte-identical restore), `rename` (identical output for a 379-entry map), and `migrate-modern` (identical except the intentional removal of a German DatePicker placeholder pin). `tests/test_canvas.py` covers each command offline.
 - `Get-FlowAuthenticationGaps` reported 14 actions on the Project C 1.26.1020.2 export, matching the manual analysis, 0 on its 1.26.1018.2 export and 0 on Project D 1.26.1025.1. A real-PAC unpack in Project D left `src/` unchanged apart from provenance.
 - Not exercised: the permission rules in a live auto-mode session (whether `ask` rules prompt as intended), `canvas.py check` against live syncs, and `migrate-modern` on an app other than Project C.
+
+### Git and control skills in 0.4.0
+
+Added on **2026-10-25**: the starter is a Git repository; `new`, `detach`, and the starter-template guard; the `canvas-update-controls` and `canvas-rename-controls` skills, with the naming convention moved into the rename skill; the per-screen push loop in `docs/live-authoring.md`; `rename --defined-in`, applied/pending counts in `rename --check`, and cross-file TextInput references in `migrate-modern --only`.
+
+- On the Project C workspaces, applying every screen as its own batch gave byte-identical results to the whole-app run for `rename --defined-in`, for `migrate-modern --only`, and for both combined per screen. On the combined result, `names` reported 0 controls without a prefix, `migrate-modern --dry-run` reported no legacy controls, and `rename --check` reported 379 of 379 entries applied.
+- `new` and `detach` are covered by offline tests with a synthetic starter (fresh history, no remote, marker removed, refusal on a dirty starter, on a non-empty destination, and on the starter's own folder).
+- Not exercised: either skill end to end in a live coauthoring session.
 
 ## Remaining validation
 

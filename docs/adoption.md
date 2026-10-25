@@ -2,7 +2,9 @@
 
 ## New repository
 
-Copy the starter including dotfolders, excluding any local `vendor`, `runtime`, `state`, `workspaces`, target/config-generation files, and real validation ZIPs. The starter itself contains no customer exports. Initialize Git if appropriate, review the baseline, and commit it before generation.
+Run `scripts/powerplatform.ps1 new -Destination <path>` in the starter. It clones the committed starter (ignored `vendor`, `runtime`, `state`, and `workspaces` stay behind), removes the starter's history, remote, and `.powerplatform/starter-template.json`, and commits one baseline on `main`. Add the project's own remote afterwards. The starter must have no uncommitted changes.
+
+A folder copied with `cp -R` or Explorer still contains the starter's `.git`: commits would land in the starter's history and pushes would go to the starter's remote. `unpack` and `target` refuse to run while the marker file exists. Run `scripts/powerplatform.ps1 detach` in the copy to replace its history and remote with a fresh repository; it refuses to run in a folder that still has the starter's name.
 
 Add project-specific domain rules, environment roles, configuration constraints, and release procedures as separate docs. Keep the generic `AGENTS.md` entry point short. For Copilot hosts that need a separate instruction entry point, link to these shared instructions using that host's project-scoped mechanism rather than duplicating them.
 
@@ -33,4 +35,4 @@ For Project B, preserve its existing authored snapshot and acceptance documentat
 
 ## Upgrading a copied starter
 
-Record the current starter version in `tooling.lock.json`. Review the diff between starter versions and copy only intended shared changes. Merge project-specific instructions, aliases, release policies, and tests. Do not automatically overwrite an entire adopted repo, pull a moving central script at runtime, or erase ignored live workspaces.
+A project's starter version is `starterVersion` in `.powerplatform/tooling.lock.json` and the source manifest. The starter tags each version (`v0.4.0`), so `git -C <starter> diff v<project version> HEAD --stat` lists what changed since. Copy only intended shared changes, then raise `starterVersion`. Merge project-specific instructions, aliases, release policies, and tests. Do not automatically overwrite an entire adopted repo, pull a moving central script at runtime, or erase ignored live workspaces.

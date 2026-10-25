@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "folderName": "power-platform-repo-starter",
+  "purpose": "Marks the starter template itself. 'new' and 'detach' remove this file; unpack and target refuse to run while it exists."
+}

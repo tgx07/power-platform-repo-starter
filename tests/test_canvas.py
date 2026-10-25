@@ -123,6 +123,42 @@ class CanvasTools(unittest.TestCase):
         self.assertNotIn("TextCanvas7", text)
         self.assertIn("Notify(lblDoneMessage.Text)", text)
 
+    def test_rename_defined_in_follows_references_into_other_files(self):
+        other = os.path.join(self.ref, "Other.pa.yaml")
+        canvas.write(other, "Screens:\n  Other:\n    Properties:\n      OnVisible: =Set(varText, TextCanvas7.Text)\n")
+        mp = os.path.join(self.tmp, "map.tsv")
+        canvas.write(mp, "TextCanvas7\tlblDoneMessage\nrectPickerOverlay\trectPickerShade\n")
+        run("rename", mp, self.ref, "--defined-in", "Done.pa.yaml")
+        with open(other, encoding="utf-8") as fh:
+            self.assertIn("lblDoneMessage.Text", fh.read())
+        with open(os.path.join(self.ref, "Components", "Picker.pa.yaml"), encoding="utf-8") as fh:
+            self.assertIn("rectPickerOverlay", fh.read())  # defined elsewhere: left for its own batch
+
+    def test_migrate_dry_run_reports_remaining_legacy_controls(self):
+        out = run("migrate-modern", self.ref, "--dry-run")[1]
+        self.assertIn("would change Done.pa.yaml", out)
+        self.assertIn("'Text': 1", out)
+        run("migrate-modern", self.ref)
+        self.assertIn("none |", run("migrate-modern", self.ref, "--dry-run")[1])
+
+    def test_rename_check_counts_applied_entries(self):
+        mp = os.path.join(self.tmp, "map.tsv")
+        canvas.write(mp, "TextCanvas7\tlblDoneMessage\n")
+        self.assertIn("applied 0, pending 1", run("rename", mp, self.ref, "--check")[1])
+        run("rename", mp, self.ref)
+        code, out = run("rename", mp, self.ref, "--check")
+        self.assertEqual(code, 0)
+        self.assertIn("applied 1, pending 0", out)
+
+    def test_migrate_only_moves_textinput_references_in_other_files(self):
+        form = SCREEN.replace("Control: Text@0.0.51", "Control: TextInput@0.0.54").replace("TextCanvas7", "txtDoneName")
+        root = self.workspace("ti", screen=form)
+        other = os.path.join(root, "Other.pa.yaml")
+        canvas.write(other, "Screens:\n  Other:\n    Properties:\n      OnVisible: =Set(varName, txtDoneName.Value)\n")
+        run("migrate-modern", root, "--only", "Done.pa.yaml")
+        with open(other, encoding="utf-8") as fh:
+            self.assertIn("txtDoneName.Text", fh.read())
+
     def test_fix_event_defaults(self):
         run("fix-event-defaults", self.ref)
         with open(os.path.join(self.ref, "Components", "Picker.pa.yaml"), encoding="utf-8") as fh:

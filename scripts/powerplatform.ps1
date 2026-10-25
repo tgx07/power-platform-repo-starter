@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter(Position = 0)][ValidateSet('doctor', 'unpack', 'setup', 'target')][string]$Command = 'doctor',
+    [Parameter(Position = 0)][ValidateSet('doctor', 'unpack', 'setup', 'target', 'new', 'detach')][string]$Command = 'doctor',
     [string]$Root = (Split-Path -Parent $PSScriptRoot),
     [string]$PacPath = 'pac',
     [ValidateSet('pi', 'claude', 'copilot', 'generic')][string]$Harness,
@@ -9,13 +9,16 @@ param(
     [switch]$AllowDirty,
     [switch]$WithHerdr,
     [string]$AppAlias,
-    [string]$StudioUrl
+    [string]$StudioUrl,
+    [string]$Destination
 )
 $ErrorActionPreference = 'Stop'
 if ($WithHerdr -and $Command -ne 'setup') { throw '-WithHerdr applies only to setup -Harness pi.' }
 Import-Module (Join-Path $PSScriptRoot 'PowerPlatform.psm1') -Force -DisableNameChecking
 switch ($Command) {
     'doctor' { Show-ProjectDoctor -Root $Root -PacPath $PacPath }
+    'new' { New-StarterProject -Root $Root -Destination $Destination }
+    'detach' { Invoke-StarterDetach -Root $Root }
     'unpack' { Invoke-RepositoryUnpack -Root $Root -PacPath $PacPath -Preview:$Preview -AllowDirty:$AllowDirty | Out-Null }
     'target' {
         if (-not $AppAlias -or -not $StudioUrl) { throw 'Provide -AppAlias <alias> -StudioUrl <full Studio edit URL>.' }
