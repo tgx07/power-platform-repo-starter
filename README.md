@@ -1,6 +1,6 @@
 # Power Platform repo starter
 
-A copyable, pipeline-independent starter for **one Power Platform solution per repository**. Version **0.2.0**.
+A copyable, pipeline-independent starter for **one Power Platform solution per repository**. Version **0.3.0**.
 
 - Unpack the highest-version unmanaged export using PAC on macOS or Windows.
 - Discover every exported Canvas app and generate `.pa.yaml` review source.
@@ -45,6 +45,7 @@ A copyable, pipeline-independent starter for **one Power Platform solution per r
 | `powerplatform.ps1 setup -Harness pi -WithHerdr` | Additionally install the optional Herdr orchestration skill; starts no workers |
 | `powerplatform.ps1 target -AppAlias <alias> -StudioUrl '<URL>'` | Record an ignored local Canvas target; no connection |
 | `start-agent.ps1 pi\|claude\|copilot` | Launch using the selected project integration |
+| `python3 -I scripts/canvas/canvas.py <command>` | Offline Canvas YAML tools: inventory, names, post-compile check, rename, control migration |
 
 Bash launchers accept the same PowerShell-style options. `-Root <path>` selects another initialized starter project; otherwise the scripts locate their own repo, regardless of the caller's working directory. `-PacPath <path>` chooses the PAC executable explicitly.
 
@@ -56,6 +57,8 @@ SETUP.md                        Human/agent setup by harness
 Solutions/                      Unmanaged ZIP inputs; no automatic deletion
 src/                            Generated solution files and per-app YAML
 scripts/                        Shared implementation and launchers
+scripts/canvas/canvas.py        Offline Canvas YAML tools (Python 3, stdlib)
+docs/solution/                  Project knowledge: overview, conventions, decisions, issues
 .agents/skills/                 Offline unpack/configuration skills; restored live adapters
 .powerplatform/config.json      Repo policy and alias overrides
 .powerplatform/tooling.lock.json Tested toolchain pins
@@ -70,6 +73,7 @@ scripts/                        Shared implementation and launchers
 
 - [Unpacking rules, aliases, safeguards, and recovery](docs/unpacking.md)
 - [Studio and flow authoring lifecycle](docs/live-authoring.md)
+- [Canvas naming convention](docs/canvas-naming.md)
 - [Configuration review and evidence boundaries](docs/configuration-review.md)
 - [Baseline and optional Dataverse/SharePoint profiles](docs/capability-profiles.md)
 - [Optional Herdr specialist coordination](docs/herdr-specialists.md)
@@ -79,7 +83,7 @@ scripts/                        Shared implementation and launchers
 
 ## Tests
 
-No Pester installation or Python is required:
+No Pester installation is required. The Canvas tool tests run when `python3` is on PATH and are skipped with a warning otherwise:
 
 ```powershell
 pwsh -NoProfile -File ./tests/Run-Tests.ps1

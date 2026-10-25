@@ -197,6 +197,39 @@ function Get-CanvasApps([string]$SourceRoot, $Config) {
     }
 }
 
+# Connector actions saved through the FlowAgent API have come back from export without
+# "authentication": "@parameters('$authentication')"; Studio-saved flows keep it.
+function Get-FlowAuthenticationGaps([string]$SourceRoot) {
+    function Get-Key($Map, [string]$Key) { if ($Map -is [Collections.IDictionary] -and $Map.Contains($Key)) { $Map[$Key] } }
+    $gaps = [Collections.Generic.List[string]]::new()
+    $workflows = Join-Path $SourceRoot 'Workflows'
+    if (-not (Test-Path -LiteralPath $workflows)) { return @() }
+    foreach ($file in Get-ChildItem -LiteralPath $workflows -File -Filter '*.json') {
+        $flow = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable -Depth 100
+        $pending = [Collections.Generic.Stack[object]]::new()
+        $pending.Push(@('', (Get-Key (Get-Key (Get-Key $flow 'properties') 'definition') 'actions')))
+        while ($pending.Count -gt 0) {
+            $path, $actions = $pending.Pop()
+            if ($actions -isnot [Collections.IDictionary]) { continue }
+            foreach ($name in $actions.Keys) {
+                $action = $actions[$name]
+                $actionPath = if ($path) { "$path/$name" } else { $name }
+                if ("$(Get-Key $action 'type')" -like 'OpenApiConnection*' -and $null -eq (Get-Key (Get-Key $action 'inputs') 'authentication')) {
+                    $gaps.Add("$($file.Name -replace '-[0-9A-Fa-f]{8}-[0-9A-Fa-f-]+\.json$', ''): $actionPath")
+                }
+                $pending.Push(@($actionPath, (Get-Key $action 'actions')))
+                $pending.Push(@("$actionPath/else", (Get-Key (Get-Key $action 'else') 'actions')))
+                $pending.Push(@("$actionPath/default", (Get-Key (Get-Key $action 'default') 'actions')))
+                $cases = Get-Key $action 'cases'
+                if ($cases -is [Collections.IDictionary]) {
+                    foreach ($case in $cases.Keys) { $pending.Push(@("$actionPath/$case", (Get-Key $cases[$case] 'actions'))) }
+                }
+            }
+        }
+    }
+    return @($gaps | Sort-Object)
+}
+
 function Invoke-RepositoryUnpack {
     [CmdletBinding()]
     param([string]$Root, [string]$PacPath = 'pac', [switch]$Preview, [switch]$AllowDirty)
@@ -274,6 +307,10 @@ function Invoke-RepositoryUnpack {
         $movedNew = $true
         Copy-Item -LiteralPath (Join-Path $work 'source-manifest.json') -Destination $manifestPath -Force
         Write-Host "Unpacked $($selected.Version); generated review source for $($apps.Count) Canvas app(s)."
+        $gaps = @(Get-FlowAuthenticationGaps $destination)
+        if ($gaps.Count -gt 0) {
+            Write-Warning "$($gaps.Count) flow connector action(s) lack `"authentication`": `"@parameters('`$authentication')`" (seen after FlowAgent edit_flow saves; effect on import unverified). Confirm an import into a test environment before deploying:`n  $($gaps -join "`n  ")"
+        }
         return $manifest
     } catch {
         $originalError = $_
@@ -504,4 +541,4 @@ function Show-ProjectDoctor([string]$Root, [string]$PacPath = 'pac') {
     if ($failed) { throw 'Offline prerequisites are not ready. See SETUP.md.' }
 }
 
-Export-ModuleMember -Function Invoke-RepositoryUnpack, Initialize-ProjectTooling, Set-StudioTarget, Show-ProjectDoctor, Assert-ToolingReady, Get-ProjectRoot
+Export-ModuleMember -Function Invoke-RepositoryUnpack, Get-FlowAuthenticationGaps,Initialize-ProjectTooling, Set-StudioTarget, Show-ProjectDoctor, Assert-ToolingReady, Get-ProjectRoot

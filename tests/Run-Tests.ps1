@@ -373,6 +373,30 @@ try {
         Add-Content -LiteralPath (Join-Path $r '.powerplatform/tooling.lock.json') -Value ' '
         Expect-Failure { Assert-ToolingReady $r 'pi' } 'Run setup'
     }
+    Test 'flow connector actions without authentication are reported with nested paths' {
+        $r = Join-Path $testRoot ([guid]::NewGuid().ToString('N'))
+        [IO.Directory]::CreateDirectory((Join-Path $r 'Workflows')) | Out-Null
+        $auth = @{ authentication = "@parameters('`$authentication')"; host = @{ connectionName = 'shared_office365' } }
+        $bare = @{ host = @{ connectionName = 'shared_office365' } }
+        $definition = @{ properties = @{ definition = @{ actions = @{
+            Kept = @{ type = 'OpenApiConnection'; inputs = $auth }
+            Compose = @{ type = 'Compose'; inputs = 'x' }
+            Try = @{ type = 'Scope'; actions = @{ Send = @{ type = 'OpenApiConnection'; inputs = $bare } } }
+            Check = @{ type = 'If'; actions = @{}; else = @{ actions = @{ Notify = @{ type = 'OpenApiConnection'; inputs = $bare } } } }
+            Route = @{ type = 'Switch'; cases = @{ A = @{ actions = @{ Grant = @{ type = 'OpenApiConnection'; inputs = $bare } } } }; default = @{ actions = @{} } }
+        } } } }
+        [IO.File]::WriteAllText((Join-Path $r 'Workflows/FLOW_X-33333333-3333-3333-3333-333333333333.json'), ($definition | ConvertTo-Json -Depth 20))
+        $gaps = @(Get-FlowAuthenticationGaps $r)
+        Assert ($gaps.Count -eq 3) "Expected 3 gaps, got: $($gaps -join '; ')"
+        foreach ($expected in @('FLOW_X: Check/else/Notify', 'FLOW_X: Route/A/Grant', 'FLOW_X: Try/Send')) { Assert ($gaps -contains $expected) "Missing $expected" }
+        Assert (@(Get-FlowAuthenticationGaps (Join-Path $r 'missing')).Count -eq 0) 'No Workflows folder must not fail'
+    }
+    Test 'Canvas YAML tools pass their offline tests' {
+        $python = Get-Command python3 -ErrorAction SilentlyContinue
+        if (-not $python) { Write-Warning 'python3 not found; skipping scripts/canvas tests.'; return }
+        $output = & $python.Source -I (Join-Path $PSScriptRoot 'test_canvas.py') 2>&1
+        Assert ($LASTEXITCODE -eq 0) "Canvas tool tests failed:`n$($output -join "`n")"
+    }
 } finally {
     if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
 }

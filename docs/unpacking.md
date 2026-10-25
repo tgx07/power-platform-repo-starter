@@ -71,4 +71,6 @@ Symlinks/junctions in managed directories are rejected. ZIP traversal and duplic
 
 Commit `.powerplatform/source-manifest.json` with `src/`. It records the selected input, exact solution version/type, archive SHA-256, PAC/layout/starter version, and app mappings. It deliberately omits machine paths and generation timestamps so repeat runs can be compared deterministically.
 
+After replacing `src/`, `unpack` warns about flow connector actions without `"authentication": "@parameters('$authentication')"` (see the flow procedure in [live-authoring.md](live-authoring.md#flow-procedure)). The warning does not fail the unpack.
+
 ZIP hashes establish which input was used, not equivalence across separate exports. For repeatability checks, compare normalized generated paths/file hashes from the same frozen export. Review exported environment-variable defaults/current values and other tenant metadata for sensitive information before committing. Input ZIP retention and customer release distribution are project policies, not responsibilities of this unpacker.

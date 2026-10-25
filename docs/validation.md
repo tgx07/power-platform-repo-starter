@@ -1,4 +1,4 @@
-# Validation record — starter 0.2.0
+# Validation record — starter 0.3.0
 
 Validated on **2026-10-17**, macOS ARM64. No source or agent configuration in the example repositories was changed. Customer exports were copied only to disposable temporary projects and are not included in this starter.
 
@@ -90,6 +90,14 @@ No app/session connection, environment authentication, compile/apply, flow run, 
 - Inspected the installed Herdr CLI and pinned upstream builder/EDIT workflow contracts; documented role ownership, metadata broker, artifact relocation, restricted worker flags, and explicit dispatch authorization.
 - The configuration-review skill and backend profiles are agent-guided workflows, not automatic scanners, provisioning, or new MCP registrations.
 - No live specialist, Studio connection, metadata broker/resume, backend connection, or runtime configuration review was executed. The initial MCP startup/native `--help` checks above predate these additions; their toolchain pins remain unchanged.
+
+### Retro additions in 0.3.0
+
+Added on **2026-10-25** from the Project C sessions: `scripts/canvas/canvas.py`, the flow `authentication` warning in `unpack`, Claude permission rules, `docs/canvas-naming.md`, and the `docs/solution/` template.
+
+- `canvas.py` consolidates scripts written during those sessions. On their saved workspaces it matched the originals: order detection (106 of 106 parents in a scrambled copy), `restore-order` (byte-identical restore), `rename` (identical output for a 379-entry map), and `migrate-modern` (identical except the intentional removal of a German DatePicker placeholder pin). `tests/test_canvas.py` covers each command offline.
+- `Get-FlowAuthenticationGaps` reported 14 actions on the Project C 1.26.1020.2 export, matching the manual analysis, 0 on its 1.26.1018.2 export and 0 on Project D 1.26.1025.1. A real-PAC unpack in Project D left `src/` unchanged apart from provenance.
+- Not exercised: the permission rules in a live auto-mode session (whether `ask` rules prompt as intended), `canvas.py check` against live syncs, and `migrate-modern` on an app other than Project C.
 
 ## Remaining validation
 

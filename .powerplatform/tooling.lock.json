@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "starterVersion": "0.2.0",
+  "starterVersion": "0.3.0",
   "pacVersion": "2.8.1",
   "powerPlatformSkills": {
     "repository": "https://github.com/microsoft/power-platform-skills.git",

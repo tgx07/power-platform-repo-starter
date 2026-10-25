@@ -41,7 +41,7 @@ If needed, initialize Git and commit the copied baseline before the first unpack
 
 ## 2. Add live tooling prerequisites
 
-- **Canvas:** .NET 10 SDK or later (not just the runtime), including `dotnet dnx`; an existing saved app, edit permission, enabled coauthoring, and an open Studio tab. Generated MCP wiring calls `dotnet dnx` directly rather than depending on a platform-specific `dnx` shell shim.
+- **Canvas:** .NET 10 SDK or later (not just the runtime), including `dotnet dnx`; Python 3.9+ for `scripts/canvas/canvas.py`; an existing saved app, edit permission, enabled coauthoring, and an open Studio tab. Generated MCP wiring calls `dotnet dnx` directly rather than depending on a platform-specific `dnx` shell shim.
 - **Flows:** a supported Node.js LTS (Node 22/24 recommended; upstream engine minimum is 18), Azure CLI, and permission/licensing for the intended environment. FlowAgent bundles its JavaScript engine; no npm package install is required for it.
 - A harness supporting MCP stdio, plus the host features required by the selected authoring workflow.
 - Network access for setup and live services; local unpacking itself has no authentication dependency.
@@ -91,6 +91,8 @@ claude plugin install power-automate@power-platform-skills --scope project
 ```
 
 Then start plain `claude` from the repo root. No `setup` run or launcher is needed for Claude's live tooling. Never choose user/global scope.
+
+The tracked `permissions` in `.claude/settings.json` allow the read-only Canvas and FlowAgent tools (including `sync_canvas`, which only writes the local workspace) and **ask** before `connect`, `compile_canvas`, and every FlowAgent tool that saves, runs, publishes, restores, or deletes. Without them, auto mode blocked live calls as "Production Reads/Deploy" in past sessions; `connect` reports the public cloud as `prod`, which reads like a production target. Keep mutating tools in `ask`; tools in neither list fall back to the active permission mode.
 
 Trade-offs of this starter decision:
 
