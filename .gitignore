@@ -1,0 +1,26 @@
+# Local tool restores, runtime overlays, authentication-independent state and targets
+.powerplatform/vendor/
+.powerplatform/runtime/
+.powerplatform/state/
+.powerplatform/workspaces/
+.powerplatform/local.json
+.powerplatform/setup-state.json
+.powerplatform/mcp.json
+.powerplatform/*.lock
+!.powerplatform/tooling.lock.json
+.powerplatform/staging-*/
+# Locally generated harness wiring/adapters (restore with setup)
+.pi/mcp.json
+.agents/skills/powerplatform-canvas/
+.agents/skills/powerplatform-flows/
+.agents/skills/powerplatform-canvas-herdr/
+# Optional local backend dependencies and credential/config files
+.powerplatform/venv/
+.env
+.env.*
+!.env.example
+# Local build/diagnostic output
+.DS_Store
+Thumbs.db
+tmp/
+*.msapr

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "starterVersion": "0.2.0",
+  "pacVersion": "2.8.1",
+  "powerPlatformSkills": {
+    "repository": "https://github.com/microsoft/power-platform-skills.git",
+    "commit": "478cfdf838aa614a09915d4606e6fd4227490fed"
+  },
+  "canvasMcp": {
+    "package": "Microsoft.PowerApps.CanvasAuthoring.McpServer",
+    "version": "1.1.29"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "extraKnownMarketplaces": {
+    "power-platform-skills": {
+      "source": {
+        "source": "github",
+        "repo": "microsoft/power-platform-skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "canvas-apps@power-platform-skills": true,
+    "power-automate@power-platform-skills": true
+  },
+  "env": {
+    "POWER_PLATFORM_SKILLS_TELEMETRY_POWER_AUTOMATE_OPTOUT": "1"
+  }
+}
