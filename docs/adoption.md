@@ -29,9 +29,17 @@ The scripts have no Azure DevOps dependency. A future pipeline can call the same
 
 Do not simply point this unpacker at a folder containing managed/unmanaged release pairs. Keep input selection separate from customer release packaging. Pipeline-generated source must still be reviewed according to the project's established branch/PR, export, retention, and deployment rules.
 
-For Project A specifically, adoption would require an intentional pipeline change: its current export pipeline hard-codes one Canvas package and writes managed/unmanaged candidates outside `Solutions/`. Its historical managed ZIPs and release retention rules are not the generic starter's input convention. Its current `contoso_sample_86b9c/Src/` review folder would become `contoso_sample/Src/` under the proposed alias rule. None of those changes is performed by creating this starter.
-
 For Project B, preserve its existing authored snapshot and acceptance documentation before replacing `Src/`. Normalize casing and migrate references separately. Its existing standalone Microsoft skill installation should be reconciled with the complete assets/adapter approach to prevent duplicate or incomplete guidance.
+
+### Partial adoption beside an existing pipeline
+
+A repository whose pipeline already exports and unpacks the solution can adopt the live-authoring parts without the unpack contract. Project A (Azure DevOps, `project-a`) did this on 2026-10-25 from starter 0.5.0:
+
+- **Adopted:** `scripts/canvas/canvas.py` with `tests/test_canvas.py` (unchanged); the `canvas-update-controls`, `canvas-rename-controls`, and `powerplatform-configuration` skills; `docs/live-authoring.md` and `docs/configuration-review.md`; `.claude/settings.json`, `.envrc`, `.env.example`, and `.gitattributes`.
+- **Adapted:** workspaces in the ignored `tmp/canvas/` instead of `.powerplatform/workspaces/`; naming conventions in `docs/agents/canvas-conventions.md` instead of `docs/solution/README.md`; provenance from `src/Other/Solution.xml` and `release/<solution>.json` instead of the source manifest; the Studio URL from the user instead of `target`/`local.json`; "export" means running the export pipeline. Setup notes live in its `docs/live-authoring.md`, since it has no `SETUP.md`.
+- **Not adopted:** `unpack`, `PowerPlatform.psm1`, the source manifest, app aliases, the `powerplatform-unpack` skill, and the starter's `Solutions/` input convention. Its pipeline exports from the development environment, keeps `src/CanvasApps/contoso_sample_86b9c/Src/` unaliased, and publishes managed releases as retained pipeline artifacts; adopting `unpack` would require an intentional pipeline change.
+
+To upgrade such a project, diff only the adopted files (`git diff v0.5.0 HEAD -- scripts/canvas tests/test_canvas.py .agents/skills/canvas-* .agents/skills/powerplatform-configuration docs/live-authoring.md docs/configuration-review.md`) and carry the changes over through its adapted paths. Project A records the starter version in those two docs, not in a lock file. The flow `authentication` finding (`fa98119`) is already included.
 
 ## Maintaining the starter
 
