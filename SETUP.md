@@ -52,12 +52,15 @@ Only sign in when live work needs it. FlowAgent uses Azure CLI and a separate co
 
 FlowAgent calls `az account get-access-token` without a tenant or subscription, so it follows the active account of the Azure CLI profile it inherits. The tracked `.envrc` points `AZURE_CONFIG_DIR` at a separate profile (`~/.azure-powerplatform-dev`) for this repo. Your default `~/.azure` profile, for example the one `az devops` uses, stays untouched. Both stay signed in at the same time.
 
+#### macOS/Linux: direnv
+
 One-time per machine:
 
 ```bash
 brew install direnv
 echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
-AZURE_CONFIG_DIR=~/.azure-powerplatform-dev az login --allow-no-subscriptions
+exec zsh   # reload; until then direnv does nothing in this terminal
+AZURE_CONFIG_DIR=~/.azure-powerplatform-dev az login --tenant <dev-tenant> --allow-no-subscriptions
 ```
 
 Per working copy:
@@ -65,10 +68,27 @@ Per working copy:
 ```bash
 cp .env.example .env   # optional: replace placeholders for login hint, tenant, or another profile path
 direnv allow
+echo $AZURE_CONFIG_DIR                     # expect the dev profile path
 az account show --query user.name -o tsv   # expect the dev account
 ```
 
-Start the agent from the repo root so it, its Bash commands, and FlowAgent inherit the variable. Without direnv (e.g. Windows), set it in the shell first: `$env:AZURE_CONFIG_DIR = "$HOME/.azure-powerplatform-dev"`. Inside this repo, `az devops` also uses the dev profile; prefix `AZURE_CONFIG_DIR=~/.azure` for a one-off call with the default account. Git remotes authenticate through Git Credential Manager and are not affected.
+Check `echo $AZURE_CONFIG_DIR` before any `az login` in the repo. If it is empty, the hook is not loaded in this terminal, and the login lands in the default `~/.azure` profile and becomes its default account. `--allow-no-subscriptions` admits Power Platform-only tenants; `--tenant` (ID or domain) keeps a multi-tenant account in the right one. `--skip-subscription-discovery` also requires `--tenant` and is not needed.
+
+#### Windows: PowerShell
+
+direnv's Windows support is untested with this `.envrc`. Set the variable in each PowerShell window before starting `az` or the agent; it applies only to that window and the programs started from it:
+
+```powershell
+$env:AZURE_CONFIG_DIR = "$HOME\.azure-powerplatform-dev"
+az login --tenant <dev-tenant> --allow-no-subscriptions   # first time only
+az account show --query user.name -o tsv
+```
+
+For a call with the default account, use a window without the variable. Claude Code's skill symlinks need Developer Mode and `core.symlinks=true`; see [3A](#a-claude-code--native-plugins-project-scope).
+
+#### Both
+
+Start the agent from the repo root so it, its Bash commands, and FlowAgent inherit the variable. Inside this repo, `az devops` also uses the dev profile; prefix `AZURE_CONFIG_DIR=~/.azure` for a one-off call with the default account. Git remotes authenticate through Git Credential Manager and are not affected.
 
 PAC keeps its own auth profiles, and the selected one applies to every terminal. Create one for the dev account (`pac auth create --name <profile>`) and run `pac auth select --name <profile>` before live PAC work.
 
