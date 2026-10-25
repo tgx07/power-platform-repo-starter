@@ -97,7 +97,7 @@ Use the complete upstream Power Automate plugin or the local adapter. Start with
 
 A diagnostic request authorizes reads, not creating flows or rerunning business operations. Running/resubmitting flows can send messages, write data, or trigger downstream processes. Publish/enable/disable/delete, connection lifecycle operations, and restoring a backup require explicit scope and a rollback/validation plan.
 
-Saving through FlowAgent (`edit_flow`/`update_flow`) has dropped `"authentication": "@parameters('$authentication')"` from every connector action of the saved flows in the next export, while the live definition kept it and the flows ran. The effect on import into another environment is unverified. `unpack` warns about such actions; mention them in the release notes and confirm the import in a test environment.
+Saving through FlowAgent (`edit_flow`/`update_flow`) drops `"authentication": "@parameters('$authentication')"` from every connector action of the saved flows in the next export, while the live definition keeps it. This is harmless: Project A 1.26.1014.1 lacked it in 30 actions across three flows, customers imported the managed solution, and the flows run there without problems (confirmed 2026-10-25). `unpack` lists such actions so the removed lines in the flow diff are explained; no action is needed.
 
 Flow definitions under `src/Workflows/` remain export-derived review artifacts. Prefer approved changes through Power Platform authoring/tooling followed by export/unpack, not ad hoc JSON edits treated as deployed behavior.
 

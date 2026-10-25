@@ -198,7 +198,8 @@ function Get-CanvasApps([string]$SourceRoot, $Config) {
 }
 
 # Connector actions saved through the FlowAgent API have come back from export without
-# "authentication": "@parameters('$authentication')"; Studio-saved flows keep it.
+# "authentication": "@parameters('$authentication')"; Studio-saved flows keep it. Harmless: such
+# exports import and run in other environments (docs/live-authoring.md).
 function Get-FlowAuthenticationGaps([string]$SourceRoot) {
     function Get-Key($Map, [string]$Key) { if ($Map -is [Collections.IDictionary] -and $Map.Contains($Key)) { $Map[$Key] } }
     $gaps = [Collections.Generic.List[string]]::new()
@@ -310,7 +311,7 @@ function Invoke-RepositoryUnpack {
         Write-Host "Unpacked $($selected.Version); generated review source for $($apps.Count) Canvas app(s)."
         $gaps = @(Get-FlowAuthenticationGaps $destination)
         if ($gaps.Count -gt 0) {
-            Write-Warning "$($gaps.Count) flow connector action(s) lack `"authentication`": `"@parameters('`$authentication')`" (seen after FlowAgent edit_flow saves; effect on import unverified). Confirm an import into a test environment before deploying:`n  $($gaps -join "`n  ")"
+            Write-Host "Note: $($gaps.Count) flow connector action(s) lack `"authentication`": `"@parameters('`$authentication')`" (FlowAgent edit_flow saves drop it; harmless, no action needed):`n  $($gaps -join "`n  ")"
         }
         return $manifest
     } catch {
