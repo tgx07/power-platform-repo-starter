@@ -159,6 +159,131 @@ class CanvasTools(unittest.TestCase):
         with open(other, encoding="utf-8") as fh:
             self.assertIn("txtDoneName.Text", fh.read())
 
+    def test_migrate_drops_textinput_type_text_as_default(self):
+        form = SCREEN.replace("Control: Text@0.0.51", "Control: TextInput@0.0.54").replace(
+            "Weight: ='TextCanvas.Weight'.Semibold", "Type: ='TextInputCanvas.Type'.Text")
+        root = self.workspace("tt", screen=form)
+        run("migrate-modern", root)
+        with open(os.path.join(root, "Done.pa.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("Control: ModernTextInput", text)
+        self.assertNotIn("Type: =", text)  # SingleLine is the default and is left out
+
+    def test_migrate_textinput_multiline_mode_wins_over_type_text(self):
+        form = SCREEN.replace("Control: Text@0.0.51", "Control: TextInput@0.0.54").replace(
+            "Weight: ='TextCanvas.Weight'.Semibold",
+            "Mode: ='TextInputCanvas.Mode'.Multiline\n                  Type: ='TextInputCanvas.Type'.Text")
+        root = self.workspace("ml", screen=form)
+        run("migrate-modern", root)
+        with open(os.path.join(root, "Done.pa.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("Type: =TextInputType.Multiline", text)
+        self.assertEqual(text.count("Type: ="), 1)
+
+    def test_migrate_classic_label_to_modern_text(self):
+        form = SCREEN.replace("Control: Text@0.0.51", "Control: Label@2.5.1").replace(
+            "Weight: ='TextCanvas.Weight'.Semibold", "FontWeight: =FontWeight.Bold\n                  LineHeight: =1")
+        root = self.workspace("lb", screen=form)
+        code, out = run("migrate-modern", root)
+        with open(os.path.join(root, "Done.pa.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("Control: ModernText", text)
+        self.assertIn("FontWeight: =FontWeight.Bold", text)
+        self.assertIn("Size: =13", text)
+        self.assertIn("Color: =RGBA(0, 0, 0, 1)", text)
+        self.assertIn("LayoutMinHeight: =40", text)  # parent is an AutoLayout container
+        self.assertNotIn("LineHeight", text)
+        self.assertIn("dropped LineHeight", out)
+
+    def test_migrate_combobox_keeps_single_select_and_display_field(self):
+        combo = SCREEN.replace("""            - btnDoneHome:""", """            - cboDoneLocation:
+                Control: ComboBox
+                Properties:
+                  Appearance: ='ComboboxCanvas.Appearance'.Outline
+                  FontSize: =16
+                  Items: =locations
+                Children:
+                  - id1:
+                      Control: ComboBoxDataField
+                      Variant: textualColumn
+                      IsLocked: true
+                      Properties:
+                        FieldName: ="wbs_id"
+                        Order: =2
+                  - name1:
+                      Control: ComboBoxDataField
+                      Variant: textualColumn
+                      IsLocked: true
+                      Properties:
+                        FieldName: ="wbs_name"
+                        Order: =1
+            - btnDoneHome:""")
+        root = self.workspace("cb", screen=combo)
+        run("migrate-modern", root)
+        with open(os.path.join(root, "Done.pa.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("Control: ModernCombobox", text)
+        self.assertIn("SelectMultiple: =false", text)
+        self.assertIn("AllowExternalSelectedItems: =false", text)
+        self.assertIn('FontWeight: =""', text)
+        self.assertIn("ItemDisplayText: =ThisItem.wbs_name", text)
+        self.assertIn("Appearance: =Appearance.Outline", text)
+        self.assertIn("Size: =16", text)
+        self.assertNotIn("ComboBoxDataField", text)
+
+    def test_migrate_spinner_turns_size_into_padding_like_studio(self):
+        spinners = SCREEN.replace("""            - btnDoneHome:""", """            - spnDoneHuge:
+                Control: Spinner
+                Properties:
+                  AlignInContainer: =AlignInContainer.Stretch
+                  LayoutMaxHeight: =
+                  SpinnerSize: ='Spinner.SpinnerSize'.Huge
+            - spnDoneOverlay:
+                Control: Spinner
+                Properties:
+                  Height: =Parent.Height
+                  LabelPosition: ='Spinner.LabelPosition'.Below
+                  Width: =Parent.Width
+            - btnDoneHome:""")
+        root = self.workspace("spn", screen=spinners)
+        run("migrate-modern", root)
+        with open(os.path.join(root, "Done.pa.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        huge, overlay = text.split("spnDoneHuge:")[1].split("spnDoneOverlay:")
+        self.assertIn("Control: ModernSpinner", huge)
+        self.assertIn("Height: =200", huge)
+        self.assertIn("PaddingTop: =78", huge)  # (200 - 44) / 2, as Studio sets it
+        self.assertNotIn("SpinnerSize", huge)
+        self.assertNotIn("LayoutMaxHeight", huge)
+        self.assertIn('FontWeight: =""', huge)
+        self.assertIn("LabelPosition: =SpinnerLabelPosition.Below", overlay)
+        self.assertIn("PaddingTop: =0", overlay)  # formula box: no padding
+        self.assertIn("Height: =80", overlay)  # a full-height ModernSpinner would scale up to the parent
+        self.assertIn("Y: =(Parent.Height-Self.Height)/2", overlay)
+
+    def test_migrate_button_border_radius_becomes_corner_radii(self):
+        root = self.workspace("br", screen=SCREEN.replace('Text: ="Zur Startseite"\n',
+                                                          'BorderRadius: =8\n                  Text: ="Zur Startseite"\n'))
+        run("migrate-modern", root)
+        with open(os.path.join(root, "Done.pa.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertNotIn("BorderRadius", text)
+        for corner in ("RadiusBottomLeft", "RadiusBottomRight", "RadiusTopLeft", "RadiusTopRight"):
+            self.assertIn(f"{corner}: =8", text)
+
+    def test_migrate_last_control_in_file_keeps_trailing_newline(self):
+        root = self.workspace("eof", screen=SCREEN.replace('Text: ="Zur Startseite"\n', 'Text: ="Zur Startseite"\n'))
+        path = os.path.join(root, "Done.pa.yaml")
+        with open(path, encoding="utf-8") as fh:
+            src = fh.read()
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(src.replace("Control: Button@0.0.45", "Control: Text@0.0.51").rstrip("\n") + "\n")
+        run("migrate-modern", root)
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertTrue(text.endswith("\n"))
+        self.assertNotIn("\n\n                  ", text)  # no blank line inside a property block
+
     def test_names_after_escapes_in_double_quoted_scalars(self):
         # Studio exports some formulas as "=...\r\n..." scalars; the `n` of `\n` must not hide the next name.
         other = os.path.join(self.ref, "Other.pa.yaml")

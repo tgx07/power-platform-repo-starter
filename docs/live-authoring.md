@@ -32,7 +32,12 @@ Observed in project sessions with the Canvas Authoring MCP:
 - **Studio can diverge from the session.** After a large push that coincided with a disconnect, Studio showed the new control types with default properties while sync showed the intended state. Studio saves what Studio shows: ask the user to close the tab without saving, reopen, and push again per screen.
 - **Studio can lag behind a passing compile.** After a compile followed by `sync_canvas` HTTP 500s, Studio still showed the old names while syncs showed the pushed state; a browser refresh of the Studio tab showed the pushed state. Ask the user to refresh before judging a batch, and not to save a tab that shows the old state.
 - **A rename is a delete plus a create.** Studio showed renamed controls being removed and re-created, not renamed in place. This likely triggers the reload below and the order changes; anything tied to the old control instance (not to its name in formulas) does not carry over.
-- **Studio needs time to settle after a push, and may write back.** While it reloads, `sync_canvas` can return HTTP 500. Once a batch had verified clean, Studio's reload wrote the screen back with server-dropped defaults and a moved top-level component (z-order). Take two agreeing syncs before each batch, too, and compare them with the previous push; restore the order and push again if it moved.
+- **Studio needs time to settle after a push, and may write back.** While it reloads, `sync_canvas` can return HTTP 500. Once a batch had verified clean, Studio's reload wrote the screen back with server-dropped defaults and a moved top-level component (z-order). Step 1 of the push loop catches this.
+- **Studio freezes `Parent.Height` formulas in manual-layout containers the first time the user views a screen after a push.** `Height: =Parent.Height` became `=190`, `Y: =Parent.Height/2-Self.Height/2` became `=150`, and X/Y formulas bound to data were dropped; `Parent.Width` formulas survived. In a gallery template every `Height` formula became `=1` and the `Y` formulas disappeared. Restored formulas stayed put. Step 1 of the push loop catches this.
+- **"Validation FAILED" does not mean nothing was applied.** A compile that reported 72 errors, and one that reported only warnings, both applied the pushed YAML. Judge every compile by two fresh syncs and `canvas.py check`, not by its status line.
+- **A compile timeout does not tell you whether anything was applied.** One `HttpClient.Timeout of 100 seconds` left the server unchanged; the same push applied on the retry. Sync, `check`, and compile again if it did not land.
+- **Compile can corrupt component function parameter defaults in a German-locale session.** `DateTime(2000, 1, 1, 0, 0, 0)` came back as `DateTime(2000. 1. 1. 0. 0. 0)`. Write such defaults without separators, e.g. `DateTimeValue("2000-01-01T00:00:00")`.
+- **Compile drops `Group:` memberships.** The grouped controls themselves stay unchanged.
 - **`sync_canvas` can return HTTP 500.** The target directory stays empty; retry once.
 - **Compile rejects empty component Event defaults** (`Default: =`). `canvas.py fix-event-defaults` sets them to `=false`.
 
@@ -42,8 +47,8 @@ Any change that spans several screens (control updates, renames, multi-screen ed
 
 Workspace `.powerplatform/workspaces/<alias>/<yyyymmdd-hhmmss>/`: `base/` is the first sync and stays untouched; `work/` is a copy for whole-app dry runs; maps, lists, and notes sit beside them. Per batch `NN`:
 
-1. **Fresh state:** sync into `pre-NN/`, then copy it to `push-NN/`. Starting from a fresh sync keeps edits the user made in Studio since the last batch.
-2. **Apply:** run the batch's offline tool on `push-NN/` only (e.g. `migrate-modern --only <file>`, `rename --defined-in <file>`). `diff -r pre-NN push-NN` must show only the intended files.
+1. **Fresh state:** sync twice into `pre-NN-a/` and `pre-NN-b/`. From the second batch on, run `canvas.py check check-<prev>-a pre-NN-a pre-NN-b` against the previous batch to catch Studio's write-back. Each reported line is either an edit the user made on purpose, which stays, or a write-back (a formula frozen to a number, a dropped formula or default, moved order), which you restore from `check-<prev>-a/` in a separate batch through steps 3–5 before this one; ask when unsure. Then copy `pre-NN-a/` to `push-NN/`. Starting from a fresh sync keeps edits the user made in Studio since the last batch.
+2. **Apply:** run the batch's offline tool on `push-NN/` only (e.g. `migrate-modern --only <file>`, `rename --defined-in <file>`). `diff -r pre-NN-a push-NN` must show only the intended files.
 3. **Compile** `push-NN/`. If it fails on empty component event defaults, run `fix-event-defaults push-NN` and compile again.
 4. **Verify:** sync twice into `check-NN-a/` and `check-NN-b/`, then `canvas.py check push-NN check-NN-a check-NN-b`.
    - **Clean:** go on.

@@ -1,4 +1,4 @@
-# Validation record — starter 0.5.0
+# Validation record — starter 0.6.0
 
 Validated on **2026-10-17**, macOS ARM64. No source or agent configuration in the example repositories was changed. Customer exports were copied only to disposable temporary projects and are not included in this starter.
 
@@ -114,6 +114,13 @@ Added on **2026-10-25** from the Project D sessions: `rename` and `migrate-moder
 - `tests/test_canvas.py` covers the escape handling and the four new control types offline. The tooling changes were used for the Project D control update and rename and arrive unchanged from that project.
 - The hook is covered offline: the starter pushes to a bare remote, a plain copy is refused, and `detach` leaves no hook setting.
 - Not exercised: the new control mappings on an app other than Project D, and the changed permission rules in a fresh starter project.
+
+### Project A changes in 0.6.0
+
+Added on **2026-10-26** from the Project A control update and rename: `migrate-modern` updates the classic Label, the Fluent v9 ComboBox, and the Fluent v9 Spinner, turns a Button's `BorderRadius` into the four corner radii, resolves TextInput `Mode` and `Type` into one `Type`, and keeps the trailing newline after the last control in a file; `check` ignores three more server-dropped defaults; `controls.md` in the `canvas-update-controls` skill holds per-type behavior and review decisions; five coauthoring observations in `docs/live-authoring.md`; the push loop takes two syncs before each batch and checks them against the previous batch to catch Studio's write-back.
+
+- `tests/test_canvas.py` covers the new control types, the Button radius, the TextInput `Mode`/`Type` handling, and the trailing newline offline (7 new tests). The tooling changes were used for the Project A control update and rename and arrive unchanged from that project.
+- Not exercised: the Label, ComboBox, and Spinner mappings on an app other than Project A, and the write-back check before each batch in a session other than Project A's.
 
 ## Remaining validation
 

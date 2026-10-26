@@ -43,7 +43,7 @@ PREFIXES = {
     "tab": "TabList",
     "html": "HtmlViewer",
     "pen": "PenInput",
-    "spn": "Spinner",
+    "spn": "Spinner, ModernSpinner",
     "tmr": "Timer",
     "frm": "Form",
     "cmp": "component instance (CanvasComponent)",
@@ -209,7 +209,8 @@ def cmd_order(a):
 
 # The server drops properties that equal the control default; seen after migrate-modern pushes.
 DROPPED_BY_SERVER = ("VerticalAlign.Middle", "FontWeight.Normal", "ButtonAppearance.Primary", "TriggerOutput.Keypress", "IconStyle.Outline", "Align: =Align.Left",
-                     "ItemDisplayText: =ThisItem.Value")
+                     "ItemDisplayText: =ThisItem.Value", "ButtonLayout.IconBefore",
+                     "DatePickerFormat.LongAbbreviated", "TabSize: =TabSize.Large")
 
 
 def content_diffs(pushed, server, ignore):
@@ -418,7 +419,8 @@ MIGRATE_TYPES = {
     "DropDown": "ModernDropdown", "DatePicker": "ModernDatePicker", "CheckBox": "ModernCheckbox",
     "Toggle": "ModernToggle", "Icon": "ModernIcon", "Link": "ModernLink",
     "Radio": "ModernRadio", "NumberInput": "ModernNumberInput", "InfoButton": "ModernInformationButton",
-    "TabList": "ModernTabList",
+    "TabList": "ModernTabList", "Label": "ModernText",  # classic Label
+    "ComboBox": "ModernCombobox", "Spinner": "ModernSpinner",
 }
 COMMON_RENAMES = {
     "FontColor": "Color", "FontSize": "Size", "FontItalic": "Italic", "FontStrikethrough": "Strikethrough",
@@ -433,7 +435,11 @@ PER_TYPE_RENAMES = {
     "TabList": {"DefaultSelectedItems": "Default", "Size": "TabSize"},
 }
 DROPPED = {"Button": {"AcceptsFocus"}, "Icon": {"TabIndex"}, "CheckBox": {"OnSelect"}, "Toggle": {"OnSelect"}, "Link": {"AcceptsFocus"},
-           "NumberInput": {"DelayOutput"}, "InfoButton": {"AcceptsFocus"}}
+           "NumberInput": {"DelayOutput"}, "InfoButton": {"AcceptsFocus"},
+           "Label": {"LineHeight", "Live", "Role", "Tooltip", "Overflow", "TabIndex", "HoverColor", "HoverFill",
+                     "HoverBorderColor", "PressedColor", "PressedFill", "PressedBorderColor", "DisabledColor",
+                     "DisabledFill", "DisabledBorderColor", "FocusedBorderColor", "FocusedBorderThickness"},
+           "ComboBox": {"BorderRadius", "TriggerOutput"}, "Spinner": {"OnChange"}}
 # Old default -> pinned value, applied only when the property is absent, so the look stays the same.
 PINS = {
     "Text": {"Size": "=14", "PaddingTop": "=0", "PaddingBottom": "=0", "PaddingLeft": "=0", "PaddingRight": "=0",
@@ -442,9 +448,16 @@ PINS = {
     "Link": {"Size": "=14", "PaddingTop": "=0", "PaddingBottom": "=0", "PaddingLeft": "=0", "PaddingRight": "=0"},
     "Radio": {"RadioSize": "=16"},
     "TabList": {"Height": "=55", "Width": "=280"},
+    "Label": {"Size": "=13", "Color": "=RGBA(0, 0, 0, 1)", "Height": "=40"},  # padding 5 and VerticalAlign.Middle match
+    # Same pins as Studio's own update: single select, no external items, theme font size/weight.
+    "ComboBox": {"SelectMultiple": "=false", "AllowExternalSelectedItems": "=false", "Size": "=0", "FontWeight": '=""'},
+    "Spinner": {"Height": "=200", "Width": "=200", "FontWeight": '=""'},  # padding: see SPINNER_PX
 }
+# Fluent v9 spinner diameters. ModernSpinner has no SpinnerSize; like Studio's own update, the old size becomes
+# padding around it: (min(Width, Height) - diameter) / 2, or 0 when the box size is a formula.
+SPINNER_PX = {"Tiny": 20, "ExtraSmall": 24, "Small": 28, "Medium": 32, "Large": 36, "ExtraLarge": 40, "Huge": 44}
 LAYOUT_PINS = {"Text": {"LayoutMinWidth": "=96"}, "Link": {"LayoutMinWidth": "=320"},  # AutoLayout parents only
-               "TabList": {"LayoutMinHeight": "=55", "LayoutMinWidth": "=280"}}
+               "TabList": {"LayoutMinHeight": "=55", "LayoutMinWidth": "=280"}, "Label": {"LayoutMinHeight": "=40"}}
 ENUM_REPLACEMENTS = [
     (r"'TextCanvas\.Align'\.Start", "Align.Left"), (r"'TextCanvas\.Align'\.End", "Align.Right"),
     (r"'TextCanvas\.Align'\.(Center|Justify)", r"Align.\1"),
@@ -453,7 +466,9 @@ ENUM_REPLACEMENTS = [
     (r"'ButtonCanvas\.IconStyle'\.(\w+)", r"IconStyle.\1"), (r"'Icon\.IconStyle'\.(\w+)", r"IconStyle.\1"),
     (r"'TextInputCanvas\.Appearance'\.(\w+)", r"Appearance.\1"), (r"'TextInputCanvas\.Mode'\.(\w+)", r"TextInputType.\1"),
     (r"'TextInputCanvas\.TriggerOutput'\.(\w+)", r"TriggerOutput.\1"),
-    (r"'TextInputCanvas\.ValidationState'\.(\w+)", r"ValidationState.\1"), (r"'TextInputCanvas\.Type'\.(\w+)", r"TextInputType.\1"),
+    (r"'TextInputCanvas\.ValidationState'\.(\w+)", r"ValidationState.\1"),
+    (r"'TextInputCanvas\.Type'\.Text\b", "TextInputType.SingleLine"),  # no Text member; the line is dropped below
+    (r"'TextInputCanvas\.Type'\.(\w+)", r"TextInputType.\1"),
     (r"'DropdownCanvas\.Appearance'\.(\w+)", r"Appearance.\1"), (r"'DropdownCanvas\.ValidationState'\.(\w+)", r"ValidationState.\1"),
     (r"'DatePickerCanvas\.Appearance'\.(\w+)", r"Appearance.\1"), (r"'DatePickerCanvas\.StartOfWeek'\.(\w+)", r"StartOfWeek.\1"),
     (r"'DatePickerCanvas\.Format'\.(\w+)", r"DatePickerFormat.\1"), (r"'DatePickerCanvas\.DateTimeZone'\.(\w+)", r"DateTimeZone.\1"),
@@ -462,7 +477,9 @@ ENUM_REPLACEMENTS = [
     (r"'RadioGroupCanvas\.Layout'\.(\w+)", r"OptionLayout.\1"),
     (r"'NumberInput\.Appearance'\.(\w+)", r"Appearance.\1"), (r"'NumberInput\.ValidationState'\.(\w+)", r"ValidationState.\1"),
     (r"'NumberInput\.Precision'\.Auto", "DecimalPrecision.Auto"), (r"'NumberInput\.Precision'\.'?(\d)'?", r"DecimalPrecision.'\1'"),
+    (r"'ComboboxCanvas\.Appearance'\.(\w+)", r"Appearance.\1"), (r"'ComboboxCanvas\.ValidationState'\.(\w+)", r"ValidationState.\1"),
     (r"'TabList\.Alignment'\.(\w+)", r"LayoutDirection.\1"), (r"'TabList\.Size'\.(\w+)", r"TabSize.\1"),
+    (r"'Spinner\.LabelPosition'\.(\w+)", r"SpinnerLabelPosition.\1"), (r"'Spinner\.Appearance'\.(\w+)", r"SpinnerAppearance.\1"),
 ]
 
 
@@ -522,11 +539,32 @@ def migrate_file(path, textinput_names, report):
                 props.append([line.strip().split(":", 1)[0], [line]])
             elif props:
                 props[-1][1].append(line)
+        tail = []  # blank lines after the last property (end of file) stay after the rewritten block
+        while props and len(props[-1][1]) > 1 and not props[-1][1][-1].strip():
+            tail.insert(0, props[-1][1].pop())
+        spinner_size = "Medium"
+        if old == "Spinner":
+            for key, plines in list(props):
+                value = plines[0].split(":", 1)[1].strip()
+                if key == "SpinnerSize":
+                    spinner_size = value.rsplit(".", 1)[-1].strip("='\"")
+                    props.remove([key, plines])
+                elif key in ("LayoutMaxHeight", "LayoutMaxWidth") and value == "=":  # Studio drops these
+                    props.remove([key, plines])
         renames = dict(COMMON_RENAMES, **PER_TYPE_RENAMES.get(old, {}))
         new_props = {}
         for key, plines in props:
             if key in DROPPED.get(old, set()):
                 report.append(f"{os.path.basename(path)}: {c['name']} dropped {key}: {plines[0].split(':', 1)[1].strip()}")
+                continue
+            # Old Mode (SingleLine/Multiline) and Type (Text/Password/...) both become Type; Type Text is the default
+            # and must not overwrite a renamed Mode.
+            if old == "TextInput" and key == "Type" and re.search(r"'TextInputCanvas\.Type'\.Text\b", plines[0]):
+                continue
+            # The old Button's single BorderRadius becomes the four corner radii.
+            if old == "Button" and key == "BorderRadius":
+                for corner in ("RadiusBottomLeft", "RadiusBottomRight", "RadiusTopLeft", "RadiusTopRight"):
+                    new_props.setdefault(corner, [l.replace("BorderRadius:", corner + ":", 1) for l in plines])
                 continue
             nkey = renames.get(key, key)
             text = nl.join([plines[0].replace(key + ":", nkey + ":", 1)] + plines[1:])
@@ -545,16 +583,29 @@ def migrate_file(path, textinput_names, report):
             pins.update(LAYOUT_PINS.get(old, {}))
         for key, val in pins.items():
             new_props.setdefault(key, [" " * pind + f"{key}: {val}"])
+        if old == "Spinner":
+            # ModernSpinner scales to its box: one spanning the parent's full height turns huge.
+            # Keep a fixed 80 (spinner plus label), centered vertically.
+            if new_props["Height"] == [" " * pind + "Height: =Parent.Height"] and "Y" not in new_props:
+                new_props["Height"] = [" " * pind + "Height: =80"]
+                new_props["Y"] = [" " * pind + "Y: =(Parent.Height-Self.Height)/2"]
+                report.append(f"{os.path.basename(path)}: {c['name']} spanned Parent.Height; now Height 80, centered")
+            box = [new_props[k][0].split(":", 1)[1].strip() for k in ("Width", "Height")]
+            pad = 0
+            if len(new_props["Width"]) == len(new_props["Height"]) == 1 and all(re.fullmatch(r"=\d+", v) for v in box):
+                pad = max(0, (min(int(v[1:]) for v in box) - SPINNER_PX.get(spinner_size, 32)) // 2)
+            for side in ("Bottom", "Left", "Right", "Top"):
+                new_props.setdefault("Padding" + side, [" " * pind + f"Padding{side}: ={pad}"])
         if old == "DatePicker" and "Placeholder" not in new_props:
             report.append(f"{os.path.basename(path)}: {c['name']} has no Placeholder; the old control showed a localized default hint")
         children = section(lines, c, "Children")
-        if old in ("DropDown", "Radio", "TabList") and children:  # data fields become ItemDisplayText
+        if old in ("DropDown", "Radio", "TabList", "ComboBox") and children:  # data fields become ItemDisplayText
             block = nl.join(lines[children[0] + 1:children[1]])
             pairs = sorted(zip((int(o) for o in re.findall(r"Order: =(\d+)", block)), re.findall(r'FieldName: ="(\w+)"', block)))
             if pairs and "ItemDisplayText" not in new_props:
                 new_props["ItemDisplayText"] = [" " * pind + f"ItemDisplayText: =ThisItem.{pairs[0][1]}"]
             del lines[children[0]:children[1]]
-        body = [l for key in sorted(new_props) for l in new_props[key]]
+        body = [l for key in sorted(new_props) for l in new_props[key]] + tail
         if sec:
             lines[sec[0] + 1:sec[1]] = body
         elif body:
@@ -567,6 +618,8 @@ def migrate_file(path, textinput_names, report):
     for pattern, repl in ENUM_REPLACEMENTS:
         text = re.sub(pattern, repl, text)
     text = re.sub(r'\.ValidationState\s*=\s*"(Error|None)"', r".ValidationState = ValidationState.\1", text)
+    # SingleLine is the TextInput default; the server drops it, so leave it out to keep `check` clean.
+    text = re.sub(r"^[ \t]*Type: =TextInputType\.SingleLine\r?\n", "", text, flags=re.M)
     for name in textinput_names:
         text = re.sub(r"(?:(?<![\w'])|(?<=\\[nrt]))('?" + re.escape(name) + r"'?)\.Value\b", r"\1.Text", text)
     return raw, text

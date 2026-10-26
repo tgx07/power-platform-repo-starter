@@ -1,6 +1,6 @@
 # Power Platform repo starter
 
-A copyable, pipeline-independent starter for **one Power Platform solution per repository**. Version **0.5.0**.
+A copyable, pipeline-independent starter for **one Power Platform solution per repository**. Version **0.6.0**.
 
 - Unpack the highest-version unmanaged export using PAC on macOS or Windows.
 - Discover every exported Canvas app and generate `.pa.yaml` review source.

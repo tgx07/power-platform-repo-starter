@@ -1,6 +1,6 @@
 ---
 name: canvas-update-controls
-description: Update a connected Canvas app's legacy modern controls (Text, Button, TextInput, DropDown, DatePicker, CheckBox, Toggle, Icon, Link, Radio, NumberInput, InfoButton, TabList) to the current versions, screen by screen through coauthoring, keeping the look. Use for Studio's "update controls" notice, control version updates, or modern-control migration, alone or combined with renaming.
+description: Update a connected Canvas app's legacy modern controls (Text, Button, TextInput, DropDown, DatePicker, CheckBox, Toggle, Icon, Link, Radio, NumberInput, InfoButton, TabList, ComboBox, Spinner) and the classic Label to the current versions, screen by screen through coauthoring, keeping the look. Use for Studio's "update controls" notice, control version updates, or modern-control migration, alone or combined with renaming.
 ---
 
 # Update Canvas controls
@@ -9,13 +9,14 @@ Resolve the repo root as `../../..` relative to this skill directory. Before ste
 
 The update needs a coauthoring session on the intended app (Canvas procedure steps 1–4). Without one, ask the user for the Studio URL and connect first.
 
-`migrate-modern` swaps each legacy control for its current type, renames changed properties, maps enum values, and pins the old defaults (size, padding, alignment, minimum width in auto-layout containers) so nothing moves. Data-field children of DropDown, Radio, and TabList become `ItemDisplayText`. Header, Gallery, Image, Rectangle, PenInput, HtmlViewer, and `Classic/*` controls stay as they are.
+`migrate-modern` swaps each legacy control for its current type, renames changed properties, maps enum values, and pins the old defaults (size, padding, alignment, minimum width in auto-layout containers) so nothing moves. Data-field children of DropDown, Radio, and TabList become `ItemDisplayText`. The Fluent v9 ComboBox and Spinner and the classic Label are updated too. [`controls.md`](controls.md) holds per-type behavior and what needs a decision. Header, Gallery, Image, Rectangle, PenInput, HtmlViewer, and `Classic/*` controls stay as they are.
 
 1. **Baseline.** Sync into `<ws>/base/`, copy it to `<ws>/work/`, and run `migrate-modern <ws>/work` on the whole copy. Done when the whole-app result is in `work/`.
 2. **Review.** Go through the output with the user. These need a decision:
    - **Dropped properties:** an `OnSelect` with logic on a CheckBox or Toggle belongs in `OnChange`. `AcceptsFocus`, `TabIndex`, and NumberInput `DelayOutput` drop without replacement.
    - **TabLists without `DefaultSelectedItems`:** check in Studio which tab is selected on screen load; set `Default` if the first one is no longer preselected.
    - **DatePickers without a placeholder:** the old control showed a localized hint. Agree on a `Placeholder` text, or accept an empty field.
+   - **Per-type notes:** for every type in the output that `controls.md` lists, its decision (dropped Label properties, spinner size, Dropdown defaults, `SetFocus` targets).
    - **Classic controls:** they are not migrated. Replacing them is a redesign task outside this skill.
 
    Done when every reported line has a decision. Write the decisions and the batch order (smallest screen first, components among them) to `<ws>/update-plan.md`.
